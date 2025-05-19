@@ -1,0 +1,23 @@
+{
+  "name": "project_1",
+  "version": "1.0.0",
+  "description": "project_1",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "nodemon index.js"
+  },
+  "author": "MrImaginatory",
+  "license": "ISC",
+  "dependencies": {
+    "cloudinary": "^2.6.1",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "joi": "^17.13.3",
+    "mongoose": "^8.14.0",
+    "multer": "^1.4.5-lts.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
