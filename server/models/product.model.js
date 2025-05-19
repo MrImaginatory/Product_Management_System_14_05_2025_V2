@@ -3,72 +3,75 @@ import mongoose from "mongoose";
 const productSchema = new mongoose.Schema({
     productName: {
         type: String,
-        required: [true,"Please Provide ProductName"],
-        min: 3,
-        max: 50,
+        required: [true, "Please Provide Product Name"],
+        minLength: 3,
+        maxLength: 50,
+        trim: true,
     },
-    categoryName:{
-        type:mongoose.Schema.Types.ObjectId,
+    categoryName: {
+        type: mongoose.Schema.Types.ObjectId,
         ref: "Category",
-        required: [true,"Please Provide Category Name"],
+        required: [true, "Please Provide Category Reference"],
     },
-    subCategoriesName:{
-        type:[String],
-        required: [true,"Please Provide Sub-Category Name"],
+    subCategoryName: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "SubCategory",
+        required: [true, "Please Provide Subcategory Reference"],
     },
     productDescription: {
         type: String,
-        required: [true,"Please Provide Description"],
-        min: 10,
-        max: 255,
+        required: [true, "Please Provide Description"],
+        minLength: 10,
+        maxLength: 255,
+        trim: true,
     },
-    productDisplayImage:{
+    productDisplayImage: {
         type: String,
-        required: [true,"Please Provide Product-DisplayImage"],
+        // required: [true, "Please Provide Product Display Image"],
     },
-    productImages:{
+    productImages: {
         type: [String],
-        required: [true,"Please Provide ProductImage"],
+        required: [true, "Please Provide Product Images"],
     },
     productPrice: {
         type: Number,
-        min:1,
-        required: [true,"Please Provide Product Price"],
+        required: [true, "Please Provide Product Price"],
+        min: 1,
     },
     productSalePrice: {
-    type: Number,
-    min: 1,
-    required: [true, "Please Provide Product Sale Price"],
-    validate: {
-        validator: function (value) {
-        return value <= this.productPrice;
-        },
-        message: "Product Sale Price must be less than Product Price"
-    }
-    },
-    stock:{
         type: Number,
-        min:0,
-        required: [true,"Please Provide Stock"],
+        required: [true, "Please Provide Sale Price"],
+        min: 1,
+        validate: {
+            validator: function (value) {
+                return value <= this.productPrice;
+            },
+            message: "Sale price must be less than original price",
+        },
     },
-    weight:{
-        type:Number,
-        min: 0.1,
-        required: [true,"Please Provide Weight"],
+    stock: {
+        type: Number,
+        required: [true, "Please Provide Stock"],
+        min: 0,
     },
-    availability:{
+    weight: {
+        type: Number,
+        required: [true, "Please Provide Weight"],
+        min: 1,
+    },
+    availability: {
         type: String,
-        enum:["Ready_To_Ship","On_Booking"],
-        required: [true,"Please Provide Availability"],
-        default: "Ready_To_Ship"
+        enum: ["Ready_To_Ship", "On_Booking"],
+        required: [true, "Please Provide Availability Status"],
     },
-    productType:{
+    productType: {
         type: [String],
-        enum:["Hot_product","Best_Seller","Today's_deal"],
-        required: [true,"Please Provide Product Type"],
+        enum: ["Hot_product", "Best_Seller", "Today's_deal"],
+        required: [true, "Please Provide Product Type"],
     }
+}, {
+    timestamps: true // Adds createdAt and updatedAt
 });
-
 
 const Product = mongoose.model('Product', productSchema);
 export default Product;
