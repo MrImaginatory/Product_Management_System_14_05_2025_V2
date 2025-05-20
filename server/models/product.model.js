@@ -14,9 +14,12 @@ const productSchema = new mongoose.Schema({
         required: [true, "Please Provide Category Reference"],
     },
     subCategoryName: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "SubCategory",
-        required: [true, "Please Provide Subcategory Reference"],
+        type: [String],
+        required:[true, "Please Provide Subcategory"],
+        validate: {
+            validator: arr => arr.every(str => typeof str === 'string' && str.length >= 3),
+            message: "Each subcategory must be a string with at least 3 characters"
+        }
     },
     productDescription: {
         type: String,

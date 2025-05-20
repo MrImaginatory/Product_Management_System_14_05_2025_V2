@@ -1,18 +1,16 @@
 import CategoryValidateSchema from "../validators/Category.validator.js";
-import Category from "../models/category.model.js";
+import Category from "../models/category.model.js"
+import Product from "../models/product.model.js";
 import asyncWrapper from "../utils/asyncWrapper.utils.js";
-import uploadToCloudinary from "../utils/cloudinary.utils.js";
-import saveImageLocally from "../utils/saveLocally.utils.js";
+import { uploadImage, deleteImage, extractPublicIdFromUrl, saveImageLocally } from '../services/cloudinary.service.js';
+
 import cloudinary from "../constants/cloudinary.constant.js";
 import ApiError from "../utils/apiError.utils.js";
 
 const createCategory = asyncWrapper(async (req, res) => {
   await CategoryValidateSchema.validate(req.body);
 
-  // Check if category already exists
-  const categoryExists = await Category.findOne({
-    categoryName: req.body.categoryName,
-  });
+  const categoryExists = await Category.findOne({ categoryName: req.body.categoryName });
   if (categoryExists) {
     throw new ApiError(400, "Category already exists");
   }
@@ -31,26 +29,26 @@ const createCategory = asyncWrapper(async (req, res) => {
   let cloudinaryId = "";
 
   try {
-    // Step 1: Save the category without image
+    // Step 1: Save category first without image
     category = await Category.create({
       categoryName: req.body.categoryName,
       slug: req.body.slug,
       categoryDescription: req.body.categoryDescription,
-      categoryImage: "", // temp
-      cloudinaryId: "", // temp
+      categoryImage: "",
+      cloudinaryId: "",
     });
 
     // Step 2: Upload image to Cloudinary
     try {
-      cloudinaryResult = await uploadToCloudinary(req.file);
+      cloudinaryResult = await uploadImage(req.file, "category_images");
       imageUrl = cloudinaryResult.secure_url;
       cloudinaryId = cloudinaryResult.public_id;
-    } catch (cloudErr) {
-      console.error("Cloudinary upload failed:", cloudErr.message);
-      imageUrl = saveImageLocally(req.file); // fallback
+    } catch (err) {
+      console.error("Cloudinary upload failed:", err.message);
+      imageUrl = saveImageLocally(req.file);
     }
 
-    // Step 3: Update the category with image info
+    // Step 3: Update category with image info
     category.categoryImage = imageUrl;
     category.cloudinaryId = cloudinaryId;
     await category.save();
@@ -60,23 +58,15 @@ const createCategory = asyncWrapper(async (req, res) => {
       category,
     });
   } catch (err) {
-    // Cleanup if error occurs after initial DB insert but before final update
-    if (category && category._id) {
+    if (category?._id) {
       await Category.findByIdAndDelete(category._id);
     }
 
-    // Rollback Cloudinary image if already uploaded
     if (cloudinaryResult?.public_id) {
-      try {
-        await cloudinary.uploader.destroy(cloudinaryResult.public_id);
-      } catch (destroyErr) {
-        console.error(
-          "Failed to rollback Cloudinary image:",
-          destroyErr.message
-        );
-      }
+      await deleteImage(cloudinaryResult.public_id);
     }
 
+    console.error("Create Category Error:", err.message);
     throw new ApiError(500, "Failed to create category");
   }
 });
@@ -96,15 +86,15 @@ const updateCategory = asyncWrapper(async (req, res) => {
 
   try {
     if (req.file) {
-      // Step 1: Upload new image to Cloudinary
+      // Step 1: Upload new image
       try {
-        newUploadResult = await uploadToCloudinary(req.file);
+        newUploadResult = await uploadImage(req.file, "category_images");
         newImageUrl = newUploadResult.secure_url;
         newCloudinaryId = newUploadResult.public_id;
-      } catch (cloudErr) {
-        console.error("Cloudinary upload failed:", cloudErr.message);
-        newImageUrl = saveImageLocally(req.file); // fallback
-        newCloudinaryId = ""; // skip cloudinary ID
+      } catch (err) {
+        console.error("Cloudinary upload failed:", err.message);
+        newImageUrl = saveImageLocally(req.file);
+        newCloudinaryId = "";
       }
     }
 
@@ -119,47 +109,40 @@ const updateCategory = asyncWrapper(async (req, res) => {
       { new: true }
     );
 
-    // Step 3: Delete old image from Cloudinary (only if new one succeeded)
+    // Step 3: Delete old Cloudinary image
     if (
       req.file &&
       category.cloudinaryId &&
       newUploadResult?.public_id &&
       category.cloudinaryId !== newCloudinaryId
     ) {
-      try {
-        await cloudinary.uploader.destroy(category.cloudinaryId);
-      } catch (destroyErr) {
-        console.error(
-          "Failed to delete old Cloudinary image:",
-          destroyErr.message
-        );
-      }
+      await deleteImage(category.cloudinaryId);
     }
 
     return res.status(200).json({
       message: `Updated ${updatedCategory.categoryName} successfully`,
       category: updatedCategory,
     });
-  } catch (error) {
-    // 🧹 Cleanup: If new Cloudinary image uploaded but DB update fails
+  } catch (err) {
     if (newUploadResult?.public_id) {
-      try {
-        await cloudinary.uploader.destroy(newUploadResult.public_id);
-      } catch (cleanupErr) {
-        console.error(
-          "Rollback: Failed to delete new Cloudinary image:",
-          cleanupErr.message
-        );
-      }
+      await deleteImage(newUploadResult.public_id);
     }
 
-    console.error("Update failed:", error.message);
+    console.error("Update Category Error:", err.message);
     throw new ApiError(500, "Failed to update category");
   }
 });
 
 const deleteCategory = asyncWrapper(async (req, res) => {
   const categoryId = req.params.categoryId;
+  const productExists = await Product.find({ categoryName: categoryId });
+  if (productExists.length > 0) {
+    const productNames = productExists.map(p => p.productName).join(", ");
+    throw new ApiError(
+      400,
+      `Category has products associated with: ${productNames}. Delete them first.`
+    );
+  }
 
   const category = await Category.findById(categoryId);
   if (!category) {
@@ -198,13 +181,23 @@ const createSubCategory = asyncWrapper(async (req, res) => {
   if (!categoryExists) {
     return res.status(404).json({ message: "Category not found" });
   }
+  console.log(req.body.subCategoriesName);
 
   if (categoryExists.subCategoriesName.includes(req.body.subCategoriesName)) {
     return res.status(400).json({ message: "Subcategory already exists" });
   }
+
+  const subCategoriesArray = Array.isArray(req.body.subCategoriesName)
+    ? req.body.subCategoriesName
+    : [req.body.subCategoriesName];
+
+  const sanitizedSubCategories = subCategoriesArray.map((name) =>
+    name.trim().replace(/\s+/g, "_")
+  );
+
   const createdSubCategory = await Category.findByIdAndUpdate(
     categoryId,
-    { $push: { subCategoriesName: req.body.subCategoriesName } },
+    { $push: { subCategoriesName: sanitizedSubCategories } },
     { new: true }
   );
 
@@ -225,17 +218,16 @@ const updateSubCategory = asyncWrapper(async (req, res) => {
     return res.status(404).json({ message: "Category not found" });
   }
 
-  const subCategoryIndex =
-    categoryExists.subCategoriesName.indexOf(oldSubCategoryName);
-  console.log(subCategoryIndex);
+    const sanitizedNewSubCategoryName = newSubCategoryName.replace(/\s+/g, "_");
 
+  const subCategoryIndex = categoryExists.subCategoriesName.indexOf(oldSubCategoryName);
   if (subCategoryIndex === "-1") {
     return res
       .status(400)
       .json({ message: "Subcategory name does not match existing data" });
   }
 
-  categoryExists.subCategoriesName[subCategoryIndex] = newSubCategoryName;
+  categoryExists.subCategoriesName[subCategoryIndex] = sanitizedNewSubCategoryName;
   const updatedCategory = await categoryExists.save();
 
   return res.status(200).json({

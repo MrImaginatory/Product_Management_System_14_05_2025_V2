@@ -1,19 +1,21 @@
-import Category from "../models/category.model.js";
 import Product from "../models/product.model.js";
+import Category from "../models/category.model.js";
 import asyncWrapper from "../utils/asyncWrapper.utils.js";
-import saveImageLocally from "../utils/saveLocally.utils.js";
-import uploadToCloudinary from "../utils/cloudinary.utils.js";
-import cloudinary from "../constants/cloudinary.constant.js";
-import productValidationSchema from "../validators/Product.validator.js";
 import ApiError from "../utils/apiError.utils.js";
-import extractCloudinaryPublicId from "../utils/extractCloudinaryPublic.util.js";
+import productValidationSchema from "../validators/Product.validator.js";
+import {
+    uploadImage,
+    deleteMultipleImages,
+    saveImageLocally,
+    extractPublicIdFromUrl
+} from "../services/cloudinary.service.js";
 
 const createProduct = asyncWrapper(async (req, res) => {
     await productValidationSchema.validate(req.body, { abortEarly: false });
 
     const cloudinaryPublicIds = [];
     let product;
-
+    
     try {
         if (
             !req.files ||
@@ -32,20 +34,34 @@ const createProduct = asyncWrapper(async (req, res) => {
         }
 
         const categoryExists = await Category.findById(req.body.categoryName);
+        
         if (!categoryExists) {
             throw new ApiError(400, "Category does not exist.");
         }
+
+        const subCategoriesArray = Array.isArray(req.body.subCategoryName)
+        ? req.body.subCategoryName
+        : [req.body.subCategoryName];
+
+        const sanitizedSubCategories = subCategoriesArray.map((name) =>
+            name.trim().replace(/\s+/g, "_")
+        );
+
+        if(categoryExists.subCategoriesName.includes(sanitizedSubCategories) === '-1') {
+            throw new ApiError(400, "Subcategory does not exist.");
+        }
+
 
         const pt =
             typeof req.body.productType === "string"
                 ? req.body.productType.split(",").map((t) => t.trim())
                 : req.body.productType;
 
-        // Step 1: Save product without images
+        // Step 1: Save product initially
         product = await Product.create({
             productName: req.body.productName,
             categoryName: req.body.categoryName,
-            subCategoryName: req.body.categoryName,
+            subCategoryName:sanitizedSubCategories,
             productDescription: req.body.productDescription,
             productDisplayImage: "",
             productImages: [],
@@ -60,20 +76,21 @@ const createProduct = asyncWrapper(async (req, res) => {
         // Step 2: Upload display image
         let displayImageUrl = "";
         try {
-            const displayResult = await uploadToCloudinary(
-                req.files.productDisplayImage[0]
+            const result = await uploadImage(
+                req.files.productDisplayImage[0],
+                "product_images"
             );
-            displayImageUrl = displayResult.secure_url;
-            cloudinaryPublicIds.push(displayResult.public_id);
+            displayImageUrl = result.secure_url;
+            cloudinaryPublicIds.push(result.public_id);
         } catch (err) {
             displayImageUrl = saveImageLocally(req.files.productDisplayImage[0]);
         }
 
-        // Step 3: Upload product images
+        // Step 3: Upload other product images
         const productImageUrls = [];
         for (const file of req.files.productImages) {
             try {
-                const result = await uploadToCloudinary(file);
+                const result = await uploadImage(file, "product_images");
                 productImageUrls.push(result.secure_url);
                 cloudinaryPublicIds.push(result.public_id);
             } catch (err) {
@@ -81,7 +98,7 @@ const createProduct = asyncWrapper(async (req, res) => {
             }
         }
 
-        // Step 4: Update product with image URLs
+        // Step 4: Final update
         product.productDisplayImage = displayImageUrl;
         product.productImages = productImageUrls;
         await product.save();
@@ -90,113 +107,106 @@ const createProduct = asyncWrapper(async (req, res) => {
             message: "Product created successfully",
             product,
         });
-    } catch (error) {
-        // Rollback if something fails after DB insert
+    } catch (err) {
         if (product?._id) {
             await Product.findByIdAndDelete(product._id);
         }
 
-        // Delete any uploaded Cloudinary images
         if (cloudinaryPublicIds.length) {
-            try {
-                await cloudinary.api.delete_resources(cloudinaryPublicIds);
-            } catch (err) {
-                console.error(
-                    "Rollback: Failed to delete Cloudinary images:",
-                    err.message
-                );
-            }
+            await deleteMultipleImages(cloudinaryPublicIds);
         }
 
-        console.error("Create product failed:", error.message);
+        console.error("Create Product Error:", err.message);
         throw new ApiError(500, "Failed to create product");
     }
 });
 
 const updateProduct = asyncWrapper(async (req, res) => {
     const { productId } = req.params;
-
     const product = await Product.findById(productId);
-    if (!product) {
-        throw new ApiError(404, "Product not found");
+    if (!product) throw new ApiError(404, "Product not found");
+
+    if (req.body.categoryName) {
+        const categoryExists = await Category.findById(req.body.categoryName);
+        if (!categoryExists) throw new ApiError(400, "Category does not exist");
     }
 
-    const cloudinaryPublicIdsToDelete = [];
-    const newCloudinaryPublicIds = [];
+    let subCategoriesArray;
+    let sanitizedSubCategories;
+    if(req.body.subCategoryName){    
+        subCategoriesArray = Array.isArray(req.body.subCategoryName)
+        ? req.body.subCategoryName
+        : [req.body.subCategoryName];
+    
+        sanitizedSubCategories = subCategoriesArray.map((name) =>
+            name.trim().replace(/\s+/g, "_")
+        );
+    }
+
+
+    const pt =
+        typeof req.body.productType === "string"
+            ? req.body.productType.split(",").map((t) => t.trim())
+            : req.body.productType;
+
+    const oldPublicIds = [];
+
+    // Capture old image IDs for deletion
+    if (product.productDisplayImage.includes("res.cloudinary.com")) {
+        oldPublicIds.push(extractPublicIdFromUrl(product.productDisplayImage));
+    }
+    for (const url of product.productImages) {
+        if (url.includes("res.cloudinary.com")) {
+            oldPublicIds.push(extractPublicIdFromUrl(url));
+        }
+    }
+
+    const newPublicIds = [];
+    let newDisplayImage = product.productDisplayImage;
+    let newProductImages = product.productImages;
 
     try {
-        if (req.body.categoryName) {
-            const categoryExists = await Category.findById(req.body.categoryName);
-            if (!categoryExists) {
-                throw new ApiError(400, "Category does not exist");
-            }
-        }
-
-        const pt =
-            typeof req.body.productType === "string"
-                ? req.body.productType.split(",").map((t) => t.trim())
-                : req.body.productType;
-
-        let newDisplayImage = product.productDisplayImage;
-        let newProductImages = product.productImages;
-
-        // STEP 1: Upload display image if provided
+        // Upload new display image
         if (req.files?.productDisplayImage) {
             try {
-                const displayUpload = await uploadToCloudinary(
-                    req.files.productDisplayImage[0]
+                const result = await uploadImage(
+                    req.files.productDisplayImage[0],
+                    "product_images"
                 );
-                newDisplayImage = displayUpload.secure_url;
-                newCloudinaryPublicIds.push(displayUpload.public_id);
-
-                // mark old display image for deletion
-                if (product.productDisplayImage.includes("res.cloudinary.com")) {
-                    const match = product.productDisplayImage.match(/\/([^/]+)\.\w+$/);
-                    if (match)
-                        cloudinaryPublicIdsToDelete.push(`product_images/${match[1]}`);
-                }
+                newDisplayImage = result.secure_url;
+                newPublicIds.push(result.public_id);
             } catch (err) {
                 newDisplayImage = saveImageLocally(req.files.productDisplayImage[0]);
             }
         }
 
-        // STEP 2: Upload product images if provided
+        // Upload new product images
         if (req.files?.productImages) {
             if (req.files.productImages.length > 50) {
-                throw new ApiError(400, "Maximum 50 product images are allowed");
+                throw new ApiError(400, "Maximum 50 product images are allowed.");
             }
 
-            const uploadedImageUrls = [];
+            const uploadedUrls = [];
             for (const file of req.files.productImages) {
                 try {
-                    const result = await uploadToCloudinary(file);
-                    uploadedImageUrls.push(result.secure_url);
-                    newCloudinaryPublicIds.push(result.public_id);
+                    const result = await uploadImage(file, "product_images");
+                    uploadedUrls.push(result.secure_url);
+                    newPublicIds.push(result.public_id);
                 } catch (err) {
-                    uploadedImageUrls.push(saveImageLocally(file));
+                    uploadedUrls.push(saveImageLocally(file));
                 }
             }
 
-            newProductImages = uploadedImageUrls;
-
-            // mark old product images for deletion
-            for (const url of product.productImages) {
-                if (url.includes("res.cloudinary.com")) {
-                    const match = url.match(/\/([^/]+)\.\w+$/);
-                    if (match)
-                        cloudinaryPublicIdsToDelete.push(`product_images/${match[1]}`);
-                }
-            }
+            newProductImages = uploadedUrls;
         }
 
-        // STEP 3: Update product in DB
+        // Update product fields
         product.productName = req.body.productName || product.productName;
         product.categoryName = req.body.categoryName || product.categoryName;
-        product.subCategoryName = req.body.categoryName || product.categoryName;
-        product.productDescription =
-            req.body.productDescription || product.productDescription;
-        product.productDisplayImage = newDisplayImage;
-        product.productImages = newProductImages;
+        product.subCategoryName = sanitizedSubCategories || product.subCategoryName;
+        product.productDescription = req.body.productDescription || product.productDescription;
+        product.productDisplayImage = newDisplayImage || product.productDisplayImage;
+        product.productImages = newProductImages || product.productImages;
         product.productPrice = req.body.productPrice || product.productPrice;
         product.productSalePrice =
             req.body.productSalePrice || product.productSalePrice;
@@ -207,9 +217,12 @@ const updateProduct = asyncWrapper(async (req, res) => {
 
         const updatedProduct = await product.save();
 
-        // STEP 4: Delete old cloudinary images
-        if (cloudinaryPublicIdsToDelete.length) {
-            await cloudinary.api.delete_resources(cloudinaryPublicIdsToDelete);
+        // Delete old images if replaced
+        if (
+            (req.files?.productDisplayImage || req.files?.productImages) &&
+            oldPublicIds.length > 0
+        ) {
+            await deleteMultipleImages(oldPublicIds);
         }
 
         return res.status(200).json({
@@ -217,54 +230,35 @@ const updateProduct = asyncWrapper(async (req, res) => {
             product: updatedProduct,
         });
     } catch (err) {
-        // Rollback any newly uploaded Cloudinary images
-        if (newCloudinaryPublicIds.length) {
-            try {
-                await cloudinary.api.delete_resources(newCloudinaryPublicIds);
-            } catch (cleanupErr) {
-                console.error(
-                    "Rollback: Failed to delete new Cloudinary images:",
-                    cleanupErr.message
-                );
-            }
+        if (newPublicIds.length > 0) {
+            await deleteMultipleImages(newPublicIds);
         }
 
-        console.error("Product update failed:", err.message);
+        console.error("Update Product Error:", err.message);
         throw new ApiError(500, "Failed to update product");
     }
 });
 
 const deleteProduct = asyncWrapper(async (req, res) => {
     const { productId } = req.params;
-
     const product = await Product.findById(productId);
-    if (!product) {
-        throw new ApiError(404, "Product not found");
+    if (!product) throw new ApiError(404, "Product not found");
+
+    // Collect all Cloudinary public IDs
+    const publicIds = [];
+    if (product.productDisplayImage.includes("res.cloudinary.com")) {
+        publicIds.push(extractPublicIdFromUrl(product.productDisplayImage));
+    }
+    for (const img of product.productImages) {
+        if (img.includes("res.cloudinary.com")) {
+            publicIds.push(extractPublicIdFromUrl(img));
+        }
     }
 
-    const displayImagePublicId = product.productDisplayImage.includes(
-        "res.cloudinary.com"
-    )
-        ? extractCloudinaryPublicId(product.productDisplayImage)
-        : null;
-
-    const productImagesPublicIds = product.productImages
-        .filter((url) => url.includes("res.cloudinary.com"))
-        .map((url) => extractCloudinaryPublicId(url));
-
-    // Step 1: Delete product from DB
     await Product.findByIdAndDelete(productId);
 
-    // Step 2: Delete images from Cloudinary (non-blocking)
-    const allPublicIds = [displayImagePublicId, ...productImagesPublicIds].filter(
-        Boolean
-    );
-    if (allPublicIds.length > 0) {
-        try {
-            await cloudinary.api.delete_resources(allPublicIds);
-        } catch (err) {
-            console.error("Failed to delete Cloudinary images:", err.message);
-        }
+    if (publicIds.length > 0) {
+        await deleteMultipleImages(publicIds);
     }
 
     return res.status(200).json({
