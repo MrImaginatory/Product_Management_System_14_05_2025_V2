@@ -297,6 +297,15 @@ const getCategories = asyncWrapper(async (req, res) => {
   });
 });
 
+const getCategory = asyncWrapper(async (req, res) => {
+  const { categoryId } = req.params;
+  const category = await Category.findById(categoryId);
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+  return res.status(200).json({  message: "Category fetched successfully", category });
+})
+
 export {
   createCategory,
   updateCategory,
@@ -305,4 +314,5 @@ export {
   updateSubCategory,
   deleteSubCategory,
   getCategories,
+  getCategory
 };
