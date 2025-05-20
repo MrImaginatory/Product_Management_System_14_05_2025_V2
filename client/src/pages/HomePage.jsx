@@ -1,6 +1,6 @@
 import React from 'react'
 import { Button, Container, Typography } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import StoreIcon from '@mui/icons-material/Store';
 
 const HomePage = () => {
     return (
@@ -10,11 +10,18 @@ const HomePage = () => {
                                             display: 'flex',
                                             justifyContent: 'center',
                                             alignItems: 'center',
-                                            gap:'20px'
+                                            gap:'20px',
+                                            flexDirection: 'column',
                                             }}>
-            <Button variant="contained" color="primary" sx={{ mt: 4 }} startIcon={<AddIcon/>}>Add Category</Button>
-            <Button variant="contained" color="primary" sx={{ mt: 4 }}>Add Subcategory</Button>
-            <Button variant="contained" color="primary" sx={{ mt: 4 }}>Add Products</Button>
+            <Typography variant="h1" sx={{ fontSize: '3rem', 
+                                            fontWeight: 'bold', 
+                                            color: '#333', 
+                                            transition: 'color 0.3s ease-in-out',  
+                                                ":hover": { color: '#007bff' } }}>
+                                            Welcome to our Store <StoreIcon sx={{ fontSize: '3rem', color: '#333' }} />
+                                            </Typography>
+            <Button variant="contained" color="primary" sx={{ mt: 4 }} onClick={() => { window.location.href = '/categories'}} > See Category</Button>
+            <Button variant="contained" color="primary" sx={{ mt: 4 }} onClick={() => { window.location.href = '/products'}}>See Products</Button>
         </Container>
     )
 }
