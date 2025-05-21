@@ -2,7 +2,7 @@ import { Box, Dialog, DialogContent, DialogTitle, TextField } from '@mui/materia
 import React from 'react'
 import { useState } from 'react'
 import { VisuallyHiddenInput } from '@mui/material'
-import CloudUploadIcon from '@mui/icons-material/CloudUploadIcon'
+import CloudUploadIcon from '@mui/icons-material'
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 
@@ -33,7 +33,7 @@ const CreateCategoryDialog = ({open, close, category, onSubmit}) => {
     }
 
     return (
-        <Dialog open={open} close={close} maxWidth='sm' fullWidth>
+        <Dialog open={true} close={close} maxWidth='sm' fullWidth>
             <DialogTitle>Edit Category</DialogTitle>
             <DialogContent>
                 <Box display='flex' flexDirection='column' gap={2} mt={1}>

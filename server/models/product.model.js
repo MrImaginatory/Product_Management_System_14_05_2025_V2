@@ -25,7 +25,7 @@ const productSchema = new mongoose.Schema({
         type: String,
         required: [true, "Please Provide Description"],
         minLength: 10,
-        maxLength: 255,
+        maxLength: 1000,
         trim: true,
     },
     productDisplayImage: {
