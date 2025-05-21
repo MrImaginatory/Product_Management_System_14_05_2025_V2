@@ -1,23 +1,22 @@
-import './App.css'
-import {BrowserRouter,Routes,Route} from 'react-router-dom';
-import HomePage from './pages/HomePage.jsx'
-import ShowCategoryData from './pages/DataDisplayPages/ShowCategoryData.jsx'
-import ShowProductData from './pages/DataDisplayPages/ShowProductData.jsx';
-import CategoryPage from './pages/SpecificDataPages/CategoryPage.jsx'
-import CreateCategoryDialog from './components/CreateCategoryDialog.jsx';
-function App() {
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import Dashboard from './pages/Dashboard';
+import CategoryPage from './pages/CategoryPage';
+import CategoryDetails from './pages/CategoryDetails';
+import ProductPage from './pages/ProductPage';
+import ProductDetails from './pages/ProductDetails';
 
+const App = () => {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomePage/>}/>
-        <Route path="/categories" element={<ShowCategoryData/>}/>
-        <Route path="/products" element={<ShowProductData/>}/>
-        <Route path="/category/:categoryId" element={<CategoryPage/>}/>
-        <Route path="/test" element={<CreateCategoryDialog/>}/>
-      </Routes>
-    </BrowserRouter>
-  )
-}
+    <Routes>
+      <Route path="/" element={<Navigate to="/dashboard" />} />
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/categories" element={<CategoryPage />} />
+      <Route path="/category/:categoryId" element={<CategoryDetails />} />
+      <Route path="/products" element={<ProductPage />} />
+      <Route path="/product/:productId" element={<ProductDetails />} />
+    </Routes>
+  );
+};
 
-export default App
+export default App;
