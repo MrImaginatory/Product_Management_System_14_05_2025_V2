@@ -1,10 +1,12 @@
 import express, { urlencoded } from 'express';
+import cors from 'cors';
 import categoryRouter from './routes/category.route.js';
 import ApiError from './utils/apiError.utils.js';
 import errorHandler from './middlewares/errorHandler.middleware.js';
 import productRouter from './routes/product.route.js';
 
 const app = express();
+app.use(cors())
 
 app.use(express.json());
 app.use(urlencoded({ extended: true }));
