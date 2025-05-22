@@ -1,0 +1,1216 @@
+import { v2 as cloudinary } from 'cloudinary';
+import dotenv from 'dotenv/config';
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+export default cloudinary;
+
+import CategoryValidateSchema from "../validators/Category.validator.js";
+import Category from "../models/category.model.js"
+import Product from "../models/product.model.js";
+import asyncWrapper from "../utils/asyncWrapper.utils.js";
+import { uploadImage, deleteImage, extractPublicIdFromUrl, saveImageLocally } from '../services/cloudinary.service.js';
+
+import cloudinary from "../constants/cloudinary.constant.js";
+import ApiError from "../utils/apiError.utils.js";
+
+const createCategory = asyncWrapper(async (req, res) => {
+  await CategoryValidateSchema.validate(req.body);
+
+  const categoryExists = await Category.findOne({ categoryName: req.body.categoryName });
+  if (categoryExists) {
+    throw new ApiError(400, "Category already exists");
+  }
+
+  if (!req.file) {
+    throw new ApiError(400, "Category image is required");
+  }
+
+  if (req.file.size > 1024 * 500) {
+    throw new ApiError(400, "Category image size should be less than 500KB");
+  }
+
+  let category;
+  let cloudinaryResult;
+  let imageUrl = "";
+  let cloudinaryId = "";
+
+  try {
+    // Step 1: Save category first without image
+    category = await Category.create({
+      categoryName: req.body.categoryName,
+      slug: req.body.slug,
+      categoryDescription: req.body.categoryDescription,
+      categoryImage: "",
+      cloudinaryId: "",
+    });
+
+    // Step 2: Upload image to Cloudinary
+    try {
+      cloudinaryResult = await uploadImage(req.file, "category_images");
+      imageUrl = cloudinaryResult.secure_url;
+      cloudinaryId = cloudinaryResult.public_id;
+    } catch (err) {
+      console.error("Cloudinary upload failed:", err.message);
+      imageUrl = saveImageLocally(req.file);
+    }
+
+    // Step 3: Update category with image info
+    category.categoryImage = imageUrl;
+    category.cloudinaryId = cloudinaryId;
+    await category.save();
+
+    return res.status(201).json({
+      message: "Category created successfully",
+      category,
+    });
+  } catch (err) {
+    if (category?._id) {
+      await Category.findByIdAndDelete(category._id);
+    }
+
+    if (cloudinaryResult?.public_id) {
+      await deleteImage(cloudinaryResult.public_id);
+    }
+
+    console.error("Create Category Error:", err.message);
+    throw new ApiError(500, "Failed to create category");
+  }
+});
+
+const updateCategory = asyncWrapper(async (req, res) => {
+  const categoryId = req.params.categoryId;
+  const category = await Category.findById(categoryId);
+
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+
+  const updatedFields = { ...req.body };
+  let newImageUrl = category.categoryImage;
+  let newCloudinaryId = category.cloudinaryId;
+  let newUploadResult = null;
+
+  try {
+    if (req.file) {
+      // Step 1: Upload new image
+      try {
+        newUploadResult = await uploadImage(req.file, "category_images");
+        newImageUrl = newUploadResult.secure_url;
+        newCloudinaryId = newUploadResult.public_id;
+      } catch (err) {
+        console.error("Cloudinary upload failed:", err.message);
+        newImageUrl = saveImageLocally(req.file);
+        newCloudinaryId = "";
+      }
+    }
+
+    // Step 2: Update DB
+    const updatedCategory = await Category.findByIdAndUpdate(
+      categoryId,
+      {
+        ...updatedFields,
+        categoryImage: newImageUrl,
+        cloudinaryId: newCloudinaryId,
+      },
+      { new: true }
+    );
+
+    // Step 3: Delete old Cloudinary image
+    if (
+      req.file &&
+      category.cloudinaryId &&
+      newUploadResult?.public_id &&
+      category.cloudinaryId !== newCloudinaryId
+    ) {
+      await deleteImage(category.cloudinaryId);
+    }
+
+    return res.status(200).json({
+      message: `Updated ${updatedCategory.categoryName} successfully`,
+      category: updatedCategory,
+    });
+  } catch (err) {
+    if (newUploadResult?.public_id) {
+      await deleteImage(newUploadResult.public_id);
+    }
+
+    console.error("Update Category Error:", err.message);
+    throw new ApiError(500, "Failed to update category");
+  }
+});
+
+const deleteCategory = asyncWrapper(async (req, res) => {
+  const categoryId = req.params.categoryId;
+  const productExists = await Product.find({ categoryName: categoryId });
+  if (productExists.length > 0) {
+    const productNames = productExists.map(p => p.productName).join(", ");
+    throw new ApiError(
+      400,
+      `Category has products associated with: ${productNames}. Delete them first.`
+    );
+  }
+
+  const category = await Category.findById(categoryId);
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+
+  // Backup Cloudinary ID before deletion
+  const cloudinaryId = category.cloudinaryId;
+  const categoryName = category.categoryName;
+
+  // Step 1: Delete the category from DB
+  await Category.findByIdAndDelete(categoryId);
+
+  // Step 2: Try to delete the Cloudinary image (non-blocking)
+  if (cloudinaryId) {
+    try {
+      await cloudinary.uploader.destroy(cloudinaryId);
+    } catch (err) {
+      console.error(
+        `Failed to delete Cloudinary image for category ${categoryName}:`,
+        err.message
+      );
+    }
+  }
+
+  return res.status(200).json({
+    message: `Deleted ${categoryName} successfully`,
+    category,
+  });
+});
+
+const createSubCategory = asyncWrapper(async (req, res) => {
+  const categoryId = req.params.categoryId;
+
+  const categoryExists = await Category.findById(categoryId);
+  if (!categoryExists) {
+    return res.status(404).json({ message: "Category not found" });
+  }
+  console.log(req.body.subCategoriesName);
+
+  if (categoryExists.subCategoriesName.includes(req.body.subCategoriesName)) {
+    return res.status(400).json({ message: "Subcategory already exists" });
+  }
+
+  const subCategoriesArray = Array.isArray(req.body.subCategoriesName)
+    ? req.body.subCategoriesName
+    : [req.body.subCategoriesName];
+
+  const sanitizedSubCategories = subCategoriesArray.map((name) =>
+    name.trim().replace(/\s+/g, "_")
+  );
+
+  const createdSubCategory = await Category.findByIdAndUpdate(
+    categoryId,
+    { $push: { subCategoriesName: sanitizedSubCategories } },
+    { new: true }
+  );
+
+  return res.status(200).json({
+    message: `Updated ${createdSubCategory.categoryName} Successfully`,
+    category: createdSubCategory,
+  });
+});
+
+const updateSubCategory = asyncWrapper(async (req, res) => {
+  const { categoryId } = req.params;
+  const { oldSubCategoryName, newSubCategoryName } = req.body;
+
+  console.log(req.body);
+
+  const categoryExists = await Category.findById(categoryId);
+  if (!categoryExists) {
+    return res.status(404).json({ message: "Category not found" });
+  }
+
+    const sanitizedNewSubCategoryName = newSubCategoryName.replace(/\s+/g, "_");
+
+  const subCategoryIndex = categoryExists.subCategoriesName.indexOf(oldSubCategoryName);
+  if (subCategoryIndex === "-1") {
+    return res
+      .status(400)
+      .json({ message: "Subcategory name does not match existing data" });
+  }
+
+  categoryExists.subCategoriesName[subCategoryIndex] = sanitizedNewSubCategoryName;
+  const updatedCategory = await categoryExists.save();
+
+  return res.status(200).json({
+    message: `Subcategory updated successfully`,
+    category: updatedCategory,
+  });
+});
+
+const deleteSubCategory = asyncWrapper(async (req, res) => {
+  const categoryId = req.params.categoryId;
+  const subCategoriesName = req.body.subCategoriesName;
+
+  const categoryExists = await Category.findById(categoryId);
+  if (!categoryExists) {
+    return res.status(404).json({ message: "Category not found" });
+  }
+  const subCategoryIndex =
+    categoryExists.subCategoriesName.indexOf(subCategoriesName);
+  if (subCategoryIndex === "-1") {
+    return res
+      .status(400)
+      .json({ message: "Subcategory name does not match existing data" });
+  }
+  categoryExists.subCategoriesName.splice(subCategoryIndex, 1);
+  const updatedCategory = await categoryExists.save();
+  return res.status(200).json({
+    message: `Deleted ${subCategoriesName} Successfully`,
+    category: updatedCategory,
+  });
+});
+
+const getCategories = asyncWrapper(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+  const { searchCategory, searchSubCategory } = req.query;
+
+  let filter = {};
+
+  if (searchCategory) {
+    filter.categoryName = { $regex: searchCategory, $options: "i" };
+  }
+
+  if (searchSubCategory) {
+    filter.subCategoriesName = { $regex: searchSubCategory, $options: "i" };
+  }
+  const categories = await Category.find(filter).skip(skip).limit(limit);
+  const totalMatching = await Category.countDocuments(filter);
+  if (categories.length === 0) {
+    return res.status(200).json({
+      message: "No categories found",
+      page,
+      limit,
+      matchingCount: 0,
+      categories: [],
+    });
+  }
+  return res.status(200).json({
+    message:
+      searchCategory || searchSubCategory
+        ? "Filtered categories fetched successfully"
+        : "Categories fetched successfully",
+    page,
+    limit,
+    matchingCount: totalMatching,
+    categories,
+  });
+});
+
+const getCategory = asyncWrapper(async (req, res) => {
+  const { categoryId } = req.params;
+  const category = await Category.findById(categoryId);
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+  return res.status(200).json({  message: "Category fetched successfully", category });
+})
+
+export {
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  createSubCategory,
+  updateSubCategory,
+  deleteSubCategory,
+  getCategories,
+  getCategory
+};
+
+import Product from "../models/product.model.js";
+import Category from "../models/category.model.js";
+import asyncWrapper from "../utils/asyncWrapper.utils.js";
+import ApiError from "../utils/apiError.utils.js";
+import productValidationSchema from "../validators/Product.validator.js";
+import {
+    uploadImage,
+    deleteMultipleImages,
+    saveImageLocally,
+    extractPublicIdFromUrl
+} from "../services/cloudinary.service.js";
+
+const createProduct = asyncWrapper(async (req, res) => {
+    await productValidationSchema.validate(req.body, { abortEarly: false });
+
+    const cloudinaryPublicIds = [];
+    let product;
+    
+    try {
+        if (
+            !req.files ||
+            !req.files.productDisplayImage ||
+            !req.files.productImages ||
+            req.files.productImages.length < 1
+        ) {
+            throw new ApiError(
+                400,
+                "Please provide product display image and at least one product image."
+            );
+        }
+
+        if (req.files.productImages.length > 50) {
+            throw new ApiError(400, "Maximum 50 product images are allowed.");
+        }
+
+        const categoryExists = await Category.findById(req.body.categoryName);
+        
+        if (!categoryExists) {
+            throw new ApiError(400, "Category does not exist.");
+        }
+
+        const subCategoriesArray = Array.isArray(req.body.subCategoryName)
+        ? req.body.subCategoryName
+        : [req.body.subCategoryName];
+
+        const sanitizedSubCategories = subCategoriesArray.map((name) =>
+            name.trim().replace(/\s+/g, "_")
+        );
+
+        if(categoryExists.subCategoriesName.includes(sanitizedSubCategories) === '-1') {
+            throw new ApiError(400, "Subcategory does not exist.");
+        }
+
+
+        const pt =
+            typeof req.body.productType === "string"
+                ? req.body.productType.split(",").map((t) => t.trim())
+                : req.body.productType;
+
+        // Step 1: Save product initially
+        product = await Product.create({
+            productName: req.body.productName,
+            categoryName: req.body.categoryName,
+            subCategoryName:sanitizedSubCategories,
+            productDescription: req.body.productDescription,
+            productDisplayImage: "",
+            productImages: [],
+            productPrice: req.body.productPrice,
+            productSalePrice: req.body.productSalePrice,
+            stock: req.body.stock,
+            weight: req.body.weight,
+            availability: req.body.availability,
+            productType: pt,
+        });
+
+        // Step 2: Upload display image
+        let displayImageUrl = "";
+        try {
+            const result = await uploadImage(
+                req.files.productDisplayImage[0],
+                "product_images"
+            );
+            displayImageUrl = result.secure_url;
+            cloudinaryPublicIds.push(result.public_id);
+        } catch (err) {
+            displayImageUrl = saveImageLocally(req.files.productDisplayImage[0]);
+        }
+
+        // Step 3: Upload other product images
+        const productImageUrls = [];
+        for (const file of req.files.productImages) {
+            try {
+                const result = await uploadImage(file, "product_images");
+                productImageUrls.push(result.secure_url);
+                cloudinaryPublicIds.push(result.public_id);
+            } catch (err) {
+                productImageUrls.push(saveImageLocally(file));
+            }
+        }
+
+        // Step 4: Final update
+        product.productDisplayImage = displayImageUrl;
+        product.productImages = productImageUrls;
+        await product.save();
+
+        return res.status(201).json({
+            message: "Product created successfully",
+            product,
+        });
+    } catch (err) {
+        if (product?._id) {
+            await Product.findByIdAndDelete(product._id);
+        }
+
+        if (cloudinaryPublicIds.length) {
+            await deleteMultipleImages(cloudinaryPublicIds);
+        }
+
+        console.error("Create Product Error:", err.message);
+        throw new ApiError(500, "Failed to create product");
+    }
+});
+
+const updateProduct = asyncWrapper(async (req, res) => {
+    const { productId } = req.params;
+    const product = await Product.findById(productId);
+    if (!product) throw new ApiError(404, "Product not found");
+
+    if (req.body.categoryName) {
+        const categoryExists = await Category.findById(req.body.categoryName);
+        if (!categoryExists) throw new ApiError(400, "Category does not exist");
+    }
+
+    let subCategoriesArray;
+    let sanitizedSubCategories;
+    if(req.body.subCategoryName){    
+        subCategoriesArray = Array.isArray(req.body.subCategoryName)
+        ? req.body.subCategoryName
+        : [req.body.subCategoryName];
+    
+        sanitizedSubCategories = subCategoriesArray.map((name) =>
+            name.trim().replace(/\s+/g, "_")
+        );
+    }
+
+
+    const pt =
+        typeof req.body.productType === "string"
+            ? req.body.productType.split(",").map((t) => t.trim())
+            : req.body.productType;
+
+    const oldPublicIds = [];
+
+    // Capture old image IDs for deletion
+    if (product.productDisplayImage.includes("res.cloudinary.com")) {
+        oldPublicIds.push(extractPublicIdFromUrl(product.productDisplayImage));
+    }
+    for (const url of product.productImages) {
+        if (url.includes("res.cloudinary.com")) {
+            oldPublicIds.push(extractPublicIdFromUrl(url));
+        }
+    }
+
+    const newPublicIds = [];
+    let newDisplayImage = product.productDisplayImage;
+    let newProductImages = product.productImages;
+
+    try {
+        // Upload new display image
+        if (req.files?.productDisplayImage) {
+            try {
+                const result = await uploadImage(
+                    req.files.productDisplayImage[0],
+                    "product_images"
+                );
+                newDisplayImage = result.secure_url;
+                newPublicIds.push(result.public_id);
+            } catch (err) {
+                newDisplayImage = saveImageLocally(req.files.productDisplayImage[0]);
+            }
+        }
+
+        // Upload new product images
+        if (req.files?.productImages) {
+            if (req.files.productImages.length > 50) {
+                throw new ApiError(400, "Maximum 50 product images are allowed.");
+            }
+
+            const uploadedUrls = [];
+            for (const file of req.files.productImages) {
+                try {
+                    const result = await uploadImage(file, "product_images");
+                    uploadedUrls.push(result.secure_url);
+                    newPublicIds.push(result.public_id);
+                } catch (err) {
+                    uploadedUrls.push(saveImageLocally(file));
+                }
+            }
+
+            newProductImages = uploadedUrls;
+        }
+
+        // Update product fields
+        product.productName = req.body.productName || product.productName;
+        product.categoryName = req.body.categoryName || product.categoryName;
+        product.subCategoryName = sanitizedSubCategories || product.subCategoryName;
+        product.productDescription = req.body.productDescription || product.productDescription;
+        product.productDisplayImage = newDisplayImage || product.productDisplayImage;
+        product.productImages = newProductImages || product.productImages;
+        product.productPrice = req.body.productPrice || product.productPrice;
+        product.productSalePrice =
+            req.body.productSalePrice || product.productSalePrice;
+        product.stock = req.body.stock || product.stock;
+        product.weight = req.body.weight || product.weight;
+        product.availability = req.body.availability || product.availability;
+        product.productType = pt || product.productType;
+
+        const updatedProduct = await product.save();
+
+        // Delete old images if replaced
+        if (
+            (req.files?.productDisplayImage || req.files?.productImages) &&
+            oldPublicIds.length > 0
+        ) {
+            await deleteMultipleImages(oldPublicIds);
+        }
+
+        return res.status(200).json({
+            message: "Product updated successfully",
+            product: updatedProduct,
+        });
+    } catch (err) {
+        if (newPublicIds.length > 0) {
+            await deleteMultipleImages(newPublicIds);
+        }
+
+        console.error("Update Product Error:", err.message);
+        throw new ApiError(500, "Failed to update product");
+    }
+});
+
+const deleteProduct = asyncWrapper(async (req, res) => {
+    const { productId } = req.params;
+    const product = await Product.findById(productId);
+    if (!product) throw new ApiError(404, "Product not found");
+
+    // Collect all Cloudinary public IDs
+    const publicIds = [];
+    if (product.productDisplayImage.includes("res.cloudinary.com")) {
+        publicIds.push(extractPublicIdFromUrl(product.productDisplayImage));
+    }
+    for (const img of product.productImages) {
+        if (img.includes("res.cloudinary.com")) {
+            publicIds.push(extractPublicIdFromUrl(img));
+        }
+    }
+
+    await Product.findByIdAndDelete(productId);
+
+    if (publicIds.length > 0) {
+        await deleteMultipleImages(publicIds);
+    }
+
+    return res.status(200).json({
+        message: "Product deleted successfully",
+        product,
+    });
+});
+
+const getAllProducts = asyncWrapper(async (req, res) => {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+    const { searchProduct } = req.query;
+
+    let filter = {};
+
+    if (searchProduct) {
+        filter = { productName: { $regex: searchProduct, $options: "i" } };
+    }
+
+    const products = await Product.find(filter)
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+        message: "Products fetched successfully",
+        totalProducts: await Product.countDocuments(),
+        page,
+        limit,
+        products,
+    });
+});
+
+const getProduct = asyncWrapper(async (req, res) => {
+    const { productId } = req.params;
+
+    const product = await Product.findById(productId);
+    
+    if (!product) throw new ApiError(404, "Product not found");
+
+    return res.status(200).json({
+        message: "Product fetched successfully",
+        product,
+    });
+})
+
+export { createProduct, updateProduct, deleteProduct, getAllProducts, getProduct };
+
+import mongoose from "mongoose";
+
+const MONGO_URI = process.env.MONGO_URI;
+const DATABASE = process.env.MONGO_DB;
+
+const connectDB = async() =>{
+    try {
+        const connectionInstance = await mongoose.connect(`${MONGO_URI}/${DATABASE}`);
+
+        console.log("Database Connected Successfully");
+        
+        // console.log(connectionInstance);
+    } catch (error) {
+        console.error("Error Connecting Database: ",error.message);        
+    }
+}
+
+export {connectDB}
+
+import ApiError from "../utils/apiError.utils.js";
+
+const errorHandler = (err, req, res, next) => {
+    // console.error('[ErrorHandler]', err);
+
+    let statusCode = err.statusCode || 500;
+    let message = err.message || 'Internal Server Error';
+
+    // Handle Multer errors
+    if (err.name === 'MulterError') {
+        statusCode = 400;
+        message = err.code === 'LIMIT_FILE_SIZE'
+        ? 'File too large. Max allowed size is 500KB.'
+        : 'File upload error';
+    }
+
+    if (err.name === 'ValidationError') {
+        statusCode = 400;
+        message = err.message;
+    }
+    if (err.name === 'ValidationError') {
+        statusCode = 400;
+        const errors = Object.values(err.errors).map(e => e.message);
+        message = errors.join(', ');
+    }
+    if (err.name === 'CastError') {
+        statusCode = 400;
+        message = `Invalid ${err.path}: ${err.value}`;
+    } 
+    if (err.code && err.code === 11000) {
+        statusCode = 400;
+        const field = Object.keys(err.keyValue)[0];
+        message = `Duplicate value for field '${field}': ${err.keyValue[field]}`;
+    }
+
+    if (err instanceof ApiError) {
+        statusCode = err.statusCode;
+        message = err.message;
+    }
+
+    res.status(statusCode).json({
+        success: false,
+        statusCode,
+        message,
+        ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    });
+};
+
+export default errorHandler;
+
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
+if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads');
+}
+
+const storage = multer.memoryStorage(); // Buffer used for Cloudinary
+
+const fileFilter = (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.test(ext)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Only image files are allowed'), false);
+    }
+};
+
+const upload = multer({
+    storage,
+    fileFilter,
+    limits: { fileSize: 1 * 1024 * 1024 },
+});
+
+export const uploadCategoryImage = upload.single('categoryImage');
+
+export const uploadProductImages = upload.fields([
+    { name: 'productDisplayImage', maxCount: 1 },
+    { name: 'productImages', maxCount: 50 }
+]);
+
+import mongoose from "mongoose";
+
+const categorySchema = new mongoose.Schema({
+    categoryName: {
+        type: String,
+        required: [true, "Please Provide Category Name"],
+        minLength: 3,
+        maxLength: 50,
+        trim: true,
+    },
+    slug: {
+        type: String,
+        required: [true, "Please Provide Slug"],
+        minLength: 3,
+        trim: true,
+        lowercase: true,
+    },
+    categoryDescription: {
+        type: String,
+        required: [true, "Please Provide Description"],
+        minLength: 10,
+        maxLength: 1000,
+        trim: true,
+    },
+    subCategoriesName: {
+        type: [String],
+        required: true,
+        validate: {
+            validator: arr => arr.every(str => typeof str === 'string' && str.length >= 3),
+            message: "Each subcategory must be a string with at least 3 characters"
+        }
+    },
+    categoryImage: {
+        type: String,
+    },
+    cloudinaryId: {
+        type: String,
+    }
+}, {
+    timestamps: true // Adds createdAt and updatedAt
+});
+
+const Category = mongoose.model('Category', categorySchema);
+export default Category;
+
+import mongoose from "mongoose";
+
+const productSchema = new mongoose.Schema({
+    productName: {
+        type: String,
+        required: [true, "Please Provide Product Name"],
+        minLength: 3,
+        maxLength: 50,
+        trim: true,
+    },
+    categoryName: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Category",
+        required: [true, "Please Provide Category Reference"],
+    },
+    subCategoryName: {
+        type: [String],
+        required:[true, "Please Provide Subcategory"],
+        validate: {
+            validator: arr => arr.every(str => typeof str === 'string' && str.length >= 3),
+            message: "Each subcategory must be a string with at least 3 characters"
+        }
+    },
+    productDescription: {
+        type: String,
+        required: [true, "Please Provide Description"],
+        minLength: 10,
+        maxLength: 1000,
+        trim: true,
+    },
+    productDisplayImage: {
+        type: String,
+        // required: [true, "Please Provide Product Display Image"],
+    },
+    productImages: {
+        type: [String],
+        required: [true, "Please Provide Product Images"],
+    },
+    productPrice: {
+        type: Number,
+        required: [true, "Please Provide Product Price"],
+        min: 1,
+    },
+    productSalePrice: {
+        type: Number,
+        required: [true, "Please Provide Sale Price"],
+        min: 1,
+        validate: {
+            validator: function (value) {
+                return value <= this.productPrice;
+            },
+            message: "Sale price must be less than original price",
+        },
+    },
+    stock: {
+        type: Number,
+        required: [true, "Please Provide Stock"],
+        min: 0,
+    },
+    weight: {
+        type: Number,
+        required: [true, "Please Provide Weight"],
+        min: 1,
+    },
+    availability: {
+        type: String,
+        enum: ["Ready_To_Ship", "On_Booking"],
+        required: [true, "Please Provide Availability Status"],
+    },
+    productType: {
+        type: [String],
+        enum: ["Hot_product", "Best_Seller", "Today's_deal"],
+        required: [true, "Please Provide Product Type"],
+    }
+}, {
+    timestamps: true // Adds createdAt and updatedAt
+});
+
+const Product = mongoose.model('Product', productSchema);
+export default Product;
+
+import { Router } from 'express';
+import {createCategory,
+        createSubCategory,
+        deleteCategory,
+        updateCategory, 
+        updateSubCategory,
+        deleteSubCategory,
+        getCategories,
+        getCategory} from '../controllers/category.controller.js'
+import { uploadCategoryImage } from '../middlewares/multer.middleware.js';
+const categoryRouter = Router();
+
+categoryRouter.route('/categories').get(getCategories);
+categoryRouter.route('/category/:categoryId').get(getCategory);
+categoryRouter.route('/createCategory').post(uploadCategoryImage,createCategory);
+categoryRouter.route('/updateCategory/:categoryId').patch(uploadCategoryImage,updateCategory);
+categoryRouter.route('/deleteCategory/:categoryId').delete(deleteCategory);
+categoryRouter.route('/createSubCategory/:categoryId').patch(createSubCategory);
+categoryRouter.route('/updateSubCategory/:categoryId').patch(updateSubCategory);
+categoryRouter.route('/deleteSubCategory/:categoryId').delete(deleteSubCategory);
+
+export default categoryRouter;
+
+import { Router } from "express";
+import { createProduct,updateProduct,deleteProduct, getAllProducts,getProduct } from "../controllers/product.controller.js";
+import { uploadProductImages } from "../middlewares/multer.middleware.js";
+
+const productRouter = Router();
+
+productRouter.route('/createProduct').post(uploadProductImages,createProduct);
+productRouter.route('/updateProduct/:productId').patch(uploadProductImages,updateProduct);
+productRouter.route('/deleteProduct/:productId').delete(deleteProduct);
+productRouter.route('/getProducts').get(getAllProducts);
+productRouter.route('/getProduct/:productId').get(getProduct);
+
+export default productRouter;
+
+// services/cloudinary.service.js
+import { v2 as cloudinary } from 'cloudinary';
+import dotenv from 'dotenv/config';
+import path from 'path';
+import fs from 'fs';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const uploadImage = async (file, folder = 'product_images') => {
+  try {
+    const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    const result = await cloudinary.uploader.upload(base64, {
+      folder,
+      resource_type: 'image',
+    });
+    return {
+      secure_url: result.secure_url,
+      public_id: result.public_id,
+    };
+  } catch (err) {
+    throw new Error(`Cloudinary upload failed: ${err.message}`);
+  }
+};
+
+const deleteImage = async (publicId) => {
+  try {
+    if (!publicId) return;
+    await cloudinary.uploader.destroy(publicId);
+  } catch (err) {
+    console.error(`Failed to delete Cloudinary image: ${publicId}`, err.message);
+  }
+};
+
+const deleteMultipleImages = async (publicIds = []) => {
+  try {
+    if (!publicIds.length) return;
+    await cloudinary.api.delete_resources(publicIds);
+  } catch (err) {
+    console.error('Failed to delete multiple Cloudinary images:', err.message);
+  }
+};
+
+const extractPublicIdFromUrl = (url, folder = 'product_images') => {
+  const match = url.match(/\/([^/]+)\.\w+$/);
+  return match ? `${folder}/${match[1]}` : null;
+};
+
+const saveImageLocally = (file) => {
+  try {
+    const uploadsDir = path.join('uploads');
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+
+    const uniqueFilename = `${Date.now()}_${file.originalname}`;
+    const localPath = path.join(uploadsDir, uniqueFilename);
+
+    fs.writeFileSync(localPath, file.buffer);
+    return `/uploads/${uniqueFilename}`;
+  } catch (err) {
+    throw new Error('Failed to save image locally');
+  }
+};
+
+export {
+  uploadImage,
+  deleteImage,
+  deleteMultipleImages,
+  extractPublicIdFromUrl,
+  saveImageLocally,
+};
+
+// utils/ApiError.js
+export default class ApiError extends Error {
+  constructor(statusCode, message) {
+    super(message);
+    this.statusCode = statusCode;
+    this.name = this.constructor.name;
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+const asyncWrapper = (fn) => {
+    return (req, res, next) => {
+      fn(req, res, next).catch(next);
+    };
+  };
+  
+
+export default asyncWrapper
+
+import cloudinary from '../constants/cloudinary.constant.js';
+
+const deleteFromCloudinary = async (publicId) => {
+    return new Promise((resolve, reject) => {
+        cloudinary.uploader.destroy(publicId, (error, result) => {
+            if (error) {
+                console.error("Cloudinary delete error:", error);
+                reject(error);
+            } else {
+                resolve(result);
+            }
+        });
+    });
+};
+
+export default deleteFromCloudinary;
+
+const extractCloudinaryPublicId = (url) => {
+  const match = url.match(/\/([^/]+)\.\w+$/);
+  return match ? `product_images/${match[1]}` : null;
+};
+
+export default extractCloudinaryPublicId;
+
+import Joi from 'joi';
+
+const categoryValidateSchema = Joi.object({
+    categoryName: Joi.string()
+        .min(3)
+        .max(50)
+        .required()
+        .messages({
+        'string.empty': 'Category name is required',
+        'string.min': 'Category name must be at least 3 characters',
+        'string.max': 'Category name must be less than 50 characters',
+        }),
+
+    slug: Joi.string()
+        .min(3)
+        .required()
+        .messages({
+        'string.empty': 'Slug is required',
+        'string.min': 'Slug must be at least 3 characters',
+        }),
+
+    categoryDescription: Joi.string()
+        .min(10)
+        .max(1000)
+        .required()
+        .messages({
+        'string.empty': 'Description is required',
+        'string.min': 'Description must be at least 10 characters',
+        'string.max': 'Description must be less than 1000 characters',
+        }),
+});
+
+export default categoryValidateSchema;
+
+import Joi from 'joi';
+import mongoose from 'mongoose';
+
+const objectId = Joi.string().custom((value, helpers) => {
+    if (!mongoose.Types.ObjectId.isValid(value)) {
+        return helpers.message('Invalid ObjectId');
+    }
+    return value;
+}, 'ObjectId Validation');
+
+const productValidationSchema = Joi.object({
+    productName: Joi.string()
+    .min(3)
+    .max(50)
+    .required()
+    .messages({
+        'string.empty': 'Product name is required',
+        'string.min': 'Product name should be at least 3 characters',
+        'string.max': 'Product name should not exceed 50 characters',
+        }),
+
+    categoryName: objectId.required().messages({
+        'any.required': 'Category is required'
+    }),
+
+    subCategoryName: objectId.required().messages({
+        'any.required': 'Subcategory is required'
+    }),
+
+    productDescription: Joi.string()
+        .min(10)
+        .max(255)
+        .required()
+        .messages({
+        'string.empty': 'Description is required',
+        'string.min': 'Description should be at least 10 characters',
+        'string.max': 'Description should not exceed 255 characters',
+        }),
+
+    productPrice: Joi.number()
+        .positive()
+        .required()
+        .messages({ 'number.base': 'Product price must be a number' }),
+
+    productSalePrice: Joi.number()
+        .positive()
+        .required()
+        .custom((value, helpers) => {
+        const { productPrice } = helpers.state.ancestors[0];
+        if (productPrice !== undefined && value >= productPrice) {
+            return helpers.message('Sale price must be less than product price');
+        }
+        return value;
+        }),
+
+    stock: Joi.number()
+        .integer()
+        .min(0)
+        .required()
+        .messages({ 'number.base': 'Stock must be a number' }),
+
+    weight: Joi.number()
+        .positive()
+        .required()
+        .messages({ 'number.base': 'Weight must be a number' }),
+
+    availability: Joi.string()
+        .valid('Ready_To_Ship', 'On_Booking')
+        .required()
+        .messages({ 'any.only': 'Invalid availability option' }),
+
+    productType: Joi.array()
+        .items(Joi.string().valid('Hot_product', 'Best_Seller', "Today's_deal"))
+        .min(1)
+        .required()
+        .messages({
+        'array.includes': 'Invalid product type',
+        'array.min': 'At least one product type is required'
+        }),
+});
+
+export default productValidationSchema;
+
+PORT = 3001
+
+MONGO_URI = 'mongodb://localhost:27017'
+MONGO_DB = 'Product_Store'
+
+JWT_SECRET =
+
+NODE_ENV =
+
+CLOUDINARY_CLOUD_NAME = 'dl61rdb9s'
+CLOUDINARY_URL = 'cloudinary://163944781922738:aIuBKaFkhdGePkx47J3pIvapzus@dl61rdb9s'
+CLOUDINARY_API_KEY = '163944781922738'
+CLOUDINARY_API_SECRET = 'aIuBKaFkhdGePkx47J3pIvapzus'
+
+import express, { urlencoded } from 'express';
+import cors from 'cors';
+import categoryRouter from './routes/category.route.js';
+import ApiError from './utils/apiError.utils.js';
+import errorHandler from './middlewares/errorHandler.middleware.js';
+import productRouter from './routes/product.route.js';
+
+const app = express();
+app.use(cors())
+
+app.use(express.json());
+app.use(urlencoded({ extended: true }));
+
+app.use('/api/v2',categoryRouter)
+app.use('/api/v2',productRouter)
+
+// utils/ApiError.js
+app.use((req, res, next) => {
+    next(new ApiError(404, 'Route not found'));
+});
+app.use(errorHandler);
+
+export {app}
+
+import { app } from "./app.js";
+import dotenv from 'dotenv/config';
+import { connectDB } from "./database/db.js";
+
+connectDB()
+    .then(()=>{
+        app.listen(process.env.PORT,()=>{
+            console.log(`Server Up and Running at port: ${process.env.PORT}`);
+        })
+    })
+    .catch((error)=>{
+        console.error("Error Connecting DB: Index.js",error);
+    })
+
+{
+  "name": "project_1",
+  "version": "1.0.0",
+  "description": "project_1",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "nodemon index.js"
+  },
+  "author": "MrImaginatory",
+  "license": "ISC",
+  "dependencies": {
+    "cloudinary": "^2.6.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "joi": "^17.13.3",
+    "mongoose": "^8.14.0",
+    "multer": "^1.4.5-lts.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}

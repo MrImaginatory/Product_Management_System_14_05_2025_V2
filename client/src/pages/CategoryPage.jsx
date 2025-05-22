@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Button,
@@ -18,8 +18,6 @@ import axiosClient from '../services/axiosClient';
 import CategoryForm from '../components/categories/CategoryForm';
 import SubCategoryForm from '../components/categories/SubCategoryForm';
 
-
-
 const CategoryPage = () => {
     const [categories, setCategories] = useState([]);
     const [searchCategory, setSearchCategory] = useState('');
@@ -28,8 +26,6 @@ const CategoryPage = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [openAdd, setOpenAdd] = useState(false);
     const [openSub, setOpenSub] = useState(false);
-
-
 
     const fetchCategories = async () => {
         try {
@@ -46,7 +42,7 @@ const CategoryPage = () => {
 
     useEffect(() => {
         fetchCategories();
-    }, [page]);
+    }, [page])
 
     const handleSearch = () => {
         setPage(1);
@@ -76,7 +72,8 @@ const CategoryPage = () => {
                         variant="outlined"
                         size="small"
                         value={searchCategory}
-                        onChange={(e) => setSearchCategory(e.target.value)}
+                        onChange={(e) => setSearchCategory(e.target.value)
+                        }
                     />
                     <Button variant="outlined" onClick={handleSearch}>Search</Button>
                 </Stack>
@@ -103,8 +100,24 @@ const CategoryPage = () => {
                                         <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
                                         <TableCell>{cat.categoryName}</TableCell>
                                         <TableCell>{cat.slug}</TableCell>
-                                        <TableCell>{cat.subCategoriesName?.join(', ')}</TableCell>
-                                        <TableCell>{cat.categoryDescription}</TableCell>
+                                        <TableCell>{cat.subCategoriesName?.map(sub => sub.replace(/_/g, ' ')).join(', ')}</TableCell>
+                                        <TableCell>
+                                            {cat.categoryDescription.length > 100 ? (
+                                                <>
+                                                    {cat.categoryDescription.slice(0, 100)}...
+                                                    <Button
+                                                        size="small"
+                                                        variant="text"
+                                                        onClick={() => window.location.href = `/category/${cat._id}`}
+                                                    >
+                                                        Read More
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                cat.categoryDescription
+                                            )}
+                                        </TableCell>
+
                                         <TableCell>
                                             {cat.categoryImage && (
                                                 <img src={cat.categoryImage} alt="thumb" width={50} height={50} />

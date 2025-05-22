@@ -60,7 +60,7 @@ const productSchema = new mongoose.Schema({
     weight: {
         type: Number,
         required: [true, "Please Provide Weight"],
-        min: 1,
+        min: 0.1,
     },
     availability: {
         type: String,

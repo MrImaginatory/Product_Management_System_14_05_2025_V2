@@ -1,0 +1,78 @@
+create using any fronend library except reactBootstrap 
+
+/dashboard
+	2-buttons
+		1.Categories
+		2.Prodcuts
+
+/categories GET categories
+	list 10 categories per page with pagination and search facility
+	have 2 buttons on the top right corner 1.Add Category 2.Add Subcategory
+		Backend Data schema: categoryName, slug, subCategoryName, categoryDescription, categoryImage
+	table headers
+		Sno, CategoryName, Slug, SubcateoryName, CategoryDescription, CategoryImage, Actions(conatians a link to /category/:categoryId)
+	Add category button should open a dialog conataing a form for adding a category with fields: 
+		Categoryname, 
+		Slug , 
+		CategoryImage(shlould show a little thumbnail of image and also allows to cancel the selected image),
+		categoryDescription(Should be CkEditor max 999 chars)
+		on submission data should be send to the POST /createCategory 
+	Add Subcategory button should open a dialog conataing a form for adding subcategory having 2 fields 1 searchable dropdown for selecting the category subcategory input should be enabled
+		on submission data should be send to the PATCH createSubCategory/:categoryId
+		
+/categories/:categoryId GET /category/:categoryId
+	A container in the middle 
+	conatainer Is flex and has two divs
+		one for showing CategoryName, Slug, subCategoriesName, CategoryDescription, two buttons(EditCategory,EditSubcategory and Delete)
+		second for only showing CategoryImage
+	deleet button shlould delete the category: DELETE /deleteCategory/:categoryId
+
+/categories/:categoryId GET /category/:categoryId
+	EditCategory button should open a dialog with a form containing fields: CategoryName, Slug, ImageUpload button(shlould show a little thumbnail of image and also allows to cancel the selected image), categotyDescription(Should be CkEditor)
+		note: categoryName Slug and categoryDescription should be populated from the exisiting data
+		on submission data should be send to the PATCH /updateCategory/:categoryId
+	EditSubcategory button should open a dialog with a form containing fields: 1 searchable dropdown for selecting the category after only selecting category these two should be enabled oldSubCategory searchable dropdown and hslould be populated from the exsting subCategoriesName adn after entering the newSubCategoryname
+		on submission data should be send to the PATCH updateSubCategory/:categoryId
+
+/products GET /getproducts
+	list 10 categories per page with pagination and search facility
+	Have one button on the top right corner add products
+	AddProducts Button should open a form conataing fields:
+		ProductName
+		Searchable Categories Dropdown (Should be populated from the backedn data of availabe categories)
+		Subcategories of selected category only (should be serachable dropdown and multiple selection)
+		ProductDisplay Image(shlould show a little thumbnail of image and also allows to cancel the selected image)
+		ProductImages Image(shlould show a little thumbnail of image and also allows to cancel the selected image and shlould be upto 50 images)
+		ProductPrice
+		ProductSalePrice(Shlould be always less than ProductPrice)
+		stock
+		weight
+		availability (Radio Button values(Ready_To_Ship,On_Booking))
+		productType (checkbox calues(Hot_product,Best_Seller,Todays's_Deal))
+		productDescription(Should be CkEditor max 999 chars)
+		on SUbmit data should be sent to the POST /createProduct
+	table headers:
+		ProductName, Categories, Stock, SalePrice, ProductPrice and Actions(conatians a link to /product/:productId)
+	
+/product/:productId | GET /getProduct/:productId
+	A container in the middle 
+	conatainer Is flex and has two divs
+		one for showing ProductName,Category,Subcategories,productPrice,ProductSalePRice, STock,Weight, avaibility,ProductType,ProductDescription
+		second for only showing Image Carsousal and first image should always be the Product Display Image
+	and should have 2 buttons 1.editButton and 2.deleteButton on top right corner for editing and deelitng the product
+	editButton should open a form conataining fields:
+		ProductName (PrePopulated)
+		Searchable Categories Dropdown (Should be populated from the backedn data of availabe categories)
+		Subcategories of selected category only (should be serachable dropdown and multiple selection)
+		ProductDisplay Image(shlould show a little thumbnail of image and also allows to cancel the selected image)
+		ProductImages Image(shlould show a little thumbnail of image and also allows to cancel the selected image and shlould be upto 50 images)
+		ProductPrice
+		ProductSalePrice(Shlould be always less than ProductPrice)
+		stock
+		weight
+		availability (Radio Button values(Ready_To_Ship,On_Booking))
+		productType (checkbox calues(Hot_product,Best_Seller,Todays's_Deal))
+		productDescription(Should be CkEditor max 999 chars)
+		on SUbmit data should be sent to the PATCH /updateProduct/:productId
+	deleetuButton should deleet the product with confirmtion: DELETE /deleteProduct/:productId
+	

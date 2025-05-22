@@ -11,6 +11,9 @@ import {
 } from "../services/cloudinary.service.js";
 
 const createProduct = asyncWrapper(async (req, res) => {
+    console.log(req.body);
+    
+
     await productValidationSchema.validate(req.body, { abortEarly: false });
 
     const cloudinaryPublicIds = [];
@@ -283,7 +286,8 @@ const getAllProducts = asyncWrapper(async (req, res) => {
     const products = await Product.find(filter)
         .skip(skip)
         .limit(limit)
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .populate("categoryName", "categoryName"); 
 
     return res.status(200).json({
         message: "Products fetched successfully",
@@ -297,7 +301,7 @@ const getAllProducts = asyncWrapper(async (req, res) => {
 const getProduct = asyncWrapper(async (req, res) => {
     const { productId } = req.params;
 
-    const product = await Product.findById(productId);
+    const product = await Product.findById({_id:productId}).populate("categoryName", "categoryName"); ;
     
     if (!product) throw new ApiError(404, "Product not found");
 

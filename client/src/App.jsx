@@ -1,22 +1,23 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import Dashboard from './pages/Dashboard';
+import { Routes, Route } from 'react-router-dom';
+import Layout from './components/layout/Layout';
 import CategoryPage from './pages/CategoryPage';
-import CategoryDetails from './pages/CategoryDetails';
 import ProductPage from './pages/ProductPage';
+import Dashboard from './pages/Dashboard';
+import CategoryDetails from './pages/CategoryDetails';
 import ProductDetails from './pages/ProductDetails';
 
-const App = () => {
+function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/categories" element={<CategoryPage />} />
-      <Route path="/category/:categoryId" element={<CategoryDetails />} />
-      <Route path="/products" element={<ProductPage />} />
-      <Route path="/product/:productId" element={<ProductDetails />} />
+      <Route element={<Layout />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/categories" element={<CategoryPage />} />
+        <Route path="/category/:categoryId" element={<CategoryDetails />} />
+        <Route path="/products" element={<ProductPage />} />
+        <Route path="/product/:productId" element={<ProductDetails />} />
+      </Route>
     </Routes>
   );
-};
+}
 
 export default App;

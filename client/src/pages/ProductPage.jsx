@@ -46,6 +46,8 @@ const ProductPage = () => {
         setPage(1);
         fetchProducts();
     };
+    console.log(products);
+    
 
     return (
         <Container sx={{ mt: 4 }}>
@@ -88,7 +90,7 @@ const ProductPage = () => {
                                 <TableRow key={product._id}>
                                     <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
                                     <TableCell>{product.productName}</TableCell>
-                                    <TableCell>{product.categoryName}</TableCell>
+                                    <TableCell>{product.categoryName.categoryName}</TableCell>
                                     <TableCell>{product.stock}</TableCell>
                                     <TableCell>₹{product.productSalePrice}</TableCell>
                                     <TableCell>₹{product.productPrice}</TableCell>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -16,7 +16,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import axiosClient from '../../services/axiosClient';
 import ImagePreview from '../common/FileUpload';
-import CKEditorComponent from '../common/RichtextEditor';
+import CKEditorComponent from '../common/RichTextEditor';
 
 const schema = yup.object().shape({
     categoryName: yup.string().min(3).max(50).required(),
@@ -47,9 +47,6 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
             setValue('categoryName', initialData.categoryName || '');
             setValue('slug', initialData.slug || '');
             setValue('categoryDescription', initialData.categoryDescription || '');
-            if (initialData.categoryImage) {
-                setImageFile(null); // Don’t preload URL to avoid preview issues
-            }
         }
     }, [initialData, isEdit, setValue]);
 
@@ -82,6 +79,7 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
             onSuccess();
             onClose();
         } catch (err) {
+            
             console.error('Error submitting category:', err.message);
         }
     };
