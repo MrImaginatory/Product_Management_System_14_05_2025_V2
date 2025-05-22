@@ -8,10 +8,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axiosClient from '../services/axiosClient';
 import Slider from 'react-slick';
 import ProductUpdateForm from '../components/products/ProductUpdateForm';
+import {  useSnackbar } from '../context/SnackbarContext'
 
 const ProductDetails = () => {
   const { productId } = useParams();
   const navigate = useNavigate();
+  const {  showSnackbar } = useSnackbar();  
 
   const [product, setProduct] = useState(null);
   const [openEdit, setOpenEdit] = useState(false);
@@ -23,14 +25,17 @@ const ProductDetails = () => {
       setProduct(res.data.product);
     } catch (err) {
       console.error('Error fetching product:', err.message);
+        showSnackbar('Product Fetched failed!', 'error');
     }
   };
 
   const handleDelete = async () => {
     try {
       await axiosClient.delete(`/deleteProduct/${productId}`);
+        showSnackbar('Product Deleted successfully!', 'success');
       navigate('/products');
     } catch (err) {
+        showSnackbar(err?.response?.data?.message || 'Delete failed', 'error');
       console.error('Error deleting product:', err.message);
     }
   };
@@ -43,12 +48,14 @@ const ProductDetails = () => {
 
   const images = [product.productDisplayImage, ...product.productImages.filter(img => img !== product.productDisplayImage)];
 
+
   const carouselSettings = {
-    dots: true,
     infinite: true,
     speed: 500,
     slidesToShow: 1,
     slidesToScroll: 1,
+    autoplay: true,         
+    autoplaySpeed: 2000,  
   };
 
   return (
@@ -89,11 +96,11 @@ const ProductDetails = () => {
 
       {/* Edit Dialog */}
       <ProductUpdateForm
-  open={openEdit}
-  onClose={() => setOpenEdit(false)}
-  initialData={product}
-  onSuccess={fetchProduct}
-/>
+        open={openEdit}
+        onClose={() => setOpenEdit(false)}
+        initialData={product}
+        onSuccess={fetchProduct}
+      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)}>

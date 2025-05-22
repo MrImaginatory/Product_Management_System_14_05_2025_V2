@@ -11,9 +11,6 @@ import {
 } from "../services/cloudinary.service.js";
 
 const createProduct = asyncWrapper(async (req, res) => {
-    console.log(req.body);
-    
-
     await productValidationSchema.validate(req.body, { abortEarly: false });
 
     const cloudinaryPublicIds = [];

@@ -4,6 +4,13 @@ import {
 } from '@mui/material';
 
 const ProductTable = ({ products, page }) => {
+
+  if(!products || products.length === 0) return (
+    <div className="no-products">
+      <h2>No products found</h2>
+    </div>
+    );
+
   return (
     <Table>
       <TableHead>

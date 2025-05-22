@@ -6,6 +6,7 @@ import { uploadImage, deleteImage, extractPublicIdFromUrl, saveImageLocally } fr
 
 import cloudinary from "../constants/cloudinary.constant.js";
 import ApiError from "../utils/apiError.utils.js";
+import generateSlug from "../utils/slug.utils.js";
 
 const createCategory = asyncWrapper(async (req, res) => {
   await CategoryValidateSchema.validate(req.body);
@@ -23,6 +24,7 @@ const createCategory = asyncWrapper(async (req, res) => {
     throw new ApiError(400, "Category image size should be less than 500KB");
   }
 
+  let slug = generateSlug(req.body.slug);
   let category;
   let cloudinaryResult;
   let imageUrl = "";
@@ -32,7 +34,7 @@ const createCategory = asyncWrapper(async (req, res) => {
     // Step 1: Save category first without image
     category = await Category.create({
       categoryName: req.body.categoryName,
-      slug: req.body.slug,
+      slug: slug,
       categoryDescription: req.body.categoryDescription,
       categoryImage: "",
       cloudinaryId: "",
@@ -78,7 +80,8 @@ const updateCategory = asyncWrapper(async (req, res) => {
   if (!category) {
     throw new ApiError(404, "Category not found");
   }
-
+  let slug = generateSlug(req.body.slug);
+  req.body.slug = slug;
   const updatedFields = { ...req.body };
   let newImageUrl = category.categoryImage;
   let newCloudinaryId = category.cloudinaryId;
@@ -181,7 +184,6 @@ const createSubCategory = asyncWrapper(async (req, res) => {
   if (!categoryExists) {
     return res.status(404).json({ message: "Category not found" });
   }
-  console.log(req.body.subCategoriesName);
 
   if (categoryExists.subCategoriesName.includes(req.body.subCategoriesName)) {
     return res.status(400).json({ message: "Subcategory already exists" });
@@ -210,8 +212,6 @@ const createSubCategory = asyncWrapper(async (req, res) => {
 const updateSubCategory = asyncWrapper(async (req, res) => {
   const { categoryId } = req.params;
   const { oldSubCategoryName, newSubCategoryName } = req.body;
-
-  console.log(req.body);
 
   const categoryExists = await Category.findById(categoryId);
   if (!categoryExists) {

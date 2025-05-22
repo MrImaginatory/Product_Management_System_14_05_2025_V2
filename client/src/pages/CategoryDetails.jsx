@@ -16,18 +16,19 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axiosClient from '../services/axiosClient';
 import CategoryUpdateForm from '../components/categories/CategoryUpdateForm';
 import SubCategoryUpdateForm from '../components/categories/SubCategoryUpdateForm';
+import { useSnackbar } from '../context/SnackbarContext'
 
 const CategoryDetails = () => {
     const { categoryId } = useParams();
     const navigate = useNavigate();
     const [openEdit, setOpenEdit] = useState(false);
     const [openEditSub, setOpenEditSub] = useState(false);
-
-
     const [category, setCategory] = useState(null);
     const [loading, setLoading] = useState(false);
     const [openSubEdit, setOpenSubEdit] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
+
+    const { showSnackbar } = useSnackbar();
 
     const fetchCategory = async () => {
         try {
@@ -36,6 +37,7 @@ const CategoryDetails = () => {
             setCategory(res.data.category);
         } catch (err) {
             console.error('Error loading category:', err.message);
+            showSnackbar(err?.response?.data?.message || 'Error Fetching Data', 'error');
         } finally {
             setLoading(false);
         }
@@ -48,9 +50,11 @@ const CategoryDetails = () => {
     const handleDelete = async () => {
         try {
             await axiosClient.delete(`/deleteCategory/${categoryId}`);
+            showSnackbar('Category Deleted successfully!', 'success');
             navigate('/categories');
         } catch (err) {
             console.error('Error deleting category:', err.message);
+            showSnackbar(err?.response?.data?.message || 'Error Deleting Category', 'error');
         }
     };
 

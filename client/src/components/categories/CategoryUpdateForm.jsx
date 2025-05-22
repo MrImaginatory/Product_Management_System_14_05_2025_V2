@@ -8,12 +8,15 @@ import CloseIcon from '@mui/icons-material/Close';
 import axiosClient from '../../services/axiosClient';
 import CKEditorComponent from '../common/RichTextEditor';
 import ImagePreview from '../common/FileUpload';
+import { useSnackbar } from '../../context/SnackbarContext';
 
 const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
   const [categoryName, setCategoryName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState(null);
+
+  const {    showSnackbar } = useSnackbar();
 
   useEffect(() => {
     if (open && initialData) {
@@ -33,9 +36,11 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
     try {
       await axiosClient.patch(`/updateCategory/${initialData._id}`, formData);
       onSuccess();
+      showSnackbar('Category updated successfully!', 'success');
       onClose();
     } catch (err) {
       console.error('Error updating category:', err.message);
+      showSnackbar(err?.response?.data?.message || 'Error updating data', 'error');
     }
   };
 

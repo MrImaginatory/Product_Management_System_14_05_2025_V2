@@ -1,0 +1,7 @@
+/* In your CSS file or inside a styled component or sx prop */
+
+.slick-prev:before,
+.slick-next:before {
+  color: rgb(70, 70, 70) !important;
+  font-size: 24px; /* optional to increase size */
+}

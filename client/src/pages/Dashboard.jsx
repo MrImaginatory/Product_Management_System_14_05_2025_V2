@@ -8,7 +8,7 @@ const Dashboard = () => {
     return (
         <Container maxWidth="sm" sx={{ mt: 10, textAlign: 'center' }}>
             <Typography variant="h4" gutterBottom>
-                Admin Dashboard
+                Product Dashboard
             </Typography>
             <Stack spacing={2} direction="column" alignItems="center">
                 <Button variant="contained" color="primary" fullWidth onClick={() => navigate('/categories')}>

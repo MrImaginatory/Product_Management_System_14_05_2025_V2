@@ -34,7 +34,7 @@ const Sidebar = ({ open, toggleSidebar }) => {
       width: open ? drawerWidth : collapsedWidth,
       transition: 'width 0.3s',
       overflowX: 'hidden',
-      position: 'fixed', // ✅ Important
+      position: 'fixed',
       height: '100vh',
     },
   }}

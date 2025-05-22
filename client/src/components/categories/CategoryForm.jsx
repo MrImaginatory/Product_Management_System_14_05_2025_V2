@@ -7,7 +7,6 @@ import {
     Button,
     TextField,
     Stack,
-    Typography,
     IconButton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
@@ -17,6 +16,7 @@ import * as yup from 'yup';
 import axiosClient from '../../services/axiosClient';
 import ImagePreview from '../common/FileUpload';
 import CKEditorComponent from '../common/RichTextEditor';
+import { useSnackbar } from '../../context/SnackbarContext';
 
 const schema = yup.object().shape({
     categoryName: yup.string().min(3).max(50).required(),
@@ -26,12 +26,12 @@ const schema = yup.object().shape({
 
 const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = false }) => {
     const [imageFile, setImageFile] = useState(null);
-
     const {
         control,
         handleSubmit,
         setValue,
         reset,
+        watch,
         formState: { errors },
     } = useForm({
         resolver: yupResolver(schema),
@@ -42,6 +42,27 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
         },
     });
 
+    const {    showSnackbar } = useSnackbar();
+
+    const categoryNameValue = watch('categoryName');
+
+    // 🔧 Utility to generate slug from categoryName
+    const generateSlug = (text) => {
+        return text
+            .toLowerCase()
+            .trim()
+            .replace(/[^\w\s-]/g, '') // remove special characters
+            .replace(/\s+/g, '-')     // replace spaces with -
+            .replace(/-+/g, '-');     // collapse multiple hyphens
+    };
+
+    // 🎯 Watch categoryName and auto-update slug
+    useEffect(() => {
+        const newSlug = generateSlug(categoryNameValue || '');
+        setValue('slug', newSlug, { shouldValidate: true });
+    }, [categoryNameValue, setValue]);
+
+    // 📦 Set initial values when editing
     useEffect(() => {
         if (isEdit && initialData) {
             setValue('categoryName', initialData.categoryName || '');
@@ -73,17 +94,16 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
             }
-
+            showSnackbar('Category saved successfully!', 'success');
             reset();
             setImageFile(null);
             onSuccess();
             onClose();
         } catch (err) {
-            
             console.error('Error submitting category:', err.message);
+            showSnackbar(err?.response?.data?.message || 'Error saving data', 'error');
         }
     };
-
 
     const handleClose = () => {
         reset();
@@ -94,7 +114,7 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
     return (
         <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
             <DialogTitle>
-                Add Category
+                {isEdit ? 'Edit Category' : 'Add Category'}
                 <IconButton onClick={handleClose} sx={{ position: 'absolute', right: 8, top: 8 }}>
                     <CloseIcon />
                 </IconButton>
@@ -144,7 +164,9 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleClose} variant="outlined">Cancel</Button>
-                <Button onClick={handleSubmit(onSubmit)} variant="contained">Add</Button>
+                <Button onClick={handleSubmit(onSubmit)} variant="contained">
+                    {isEdit ? 'Update' : 'Add'}
+                </Button>
             </DialogActions>
         </Dialog>
     );

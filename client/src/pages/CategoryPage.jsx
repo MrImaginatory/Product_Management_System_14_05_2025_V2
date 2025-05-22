@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import {
     Box,
     Button,
@@ -17,6 +18,7 @@ import {
 import axiosClient from '../services/axiosClient';
 import CategoryForm from '../components/categories/CategoryForm';
 import SubCategoryForm from '../components/categories/SubCategoryForm';
+import { useSnackbar } from '../context/SnackbarContext'
 
 const CategoryPage = () => {
     const [categories, setCategories] = useState([]);
@@ -27,6 +29,8 @@ const CategoryPage = () => {
     const [openAdd, setOpenAdd] = useState(false);
     const [openSub, setOpenSub] = useState(false);
 
+    const { showSnackbar } = useSnackbar();
+
     const fetchCategories = async () => {
         try {
             setLoading(true);
@@ -35,6 +39,7 @@ const CategoryPage = () => {
             setTotalPages(Math.ceil(res.data.matchingCount / res.data.limit));
         } catch (err) {
             console.error('Error fetching categories:', err.message);
+            showSnackbar(err?.response?.data?.message || 'Fetching Data failed', 'error');
         } finally {
             setLoading(false);
         }
@@ -104,7 +109,11 @@ const CategoryPage = () => {
                                         <TableCell>
                                             {cat.categoryDescription.length > 100 ? (
                                                 <>
-                                                    {cat.categoryDescription.slice(0, 100)}...
+                                                    <span
+                                                        dangerouslySetInnerHTML={{
+                                                            __html: DOMPurify.sanitize(cat.categoryDescription.slice(0, 100)) + '...',
+                                                        }}
+                                                    />
                                                     <Button
                                                         size="small"
                                                         variant="text"
@@ -114,7 +123,11 @@ const CategoryPage = () => {
                                                     </Button>
                                                 </>
                                             ) : (
-                                                cat.categoryDescription
+                                                <span
+                                                    dangerouslySetInnerHTML={{
+                                                        __html: DOMPurify.sanitize(cat.categoryDescription),
+                                                    }}
+                                                />
                                             )}
                                         </TableCell>
 

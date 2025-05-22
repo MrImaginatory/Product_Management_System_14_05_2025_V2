@@ -10,6 +10,8 @@ function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
+
+        <Route path="/" element={<Dashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/categories" element={<CategoryPage />} />
         <Route path="/category/:categoryId" element={<CategoryDetails />} />

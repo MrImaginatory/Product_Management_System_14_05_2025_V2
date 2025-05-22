@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import axiosClient from '../services/axiosClient';
 import ProductForm from '../components/products/ProductForm';
+import { useSnackbar } from '../context/SnackbarContext'
 
 const ProductPage = () => {
     const [products, setProducts] = useState([]);
@@ -25,6 +26,8 @@ const ProductPage = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [openAdd, setOpenAdd] = useState(false);
 
+    const { showSnackbar } = useSnackbar();
+
     const fetchProducts = async () => {
         try {
             setLoading(true);
@@ -33,6 +36,7 @@ const ProductPage = () => {
             setTotalPages(Math.ceil(res.data.totalProducts / res.data.limit));
         } catch (err) {
             console.error('Error fetching products:', err.message);
+            showSnackbar(err?.response?.data?.message || 'Fetching Data failed', 'error');
         } finally {
             setLoading(false);
         }
@@ -46,8 +50,6 @@ const ProductPage = () => {
         setPage(1);
         fetchProducts();
     };
-    console.log(products);
-    
 
     return (
         <Container sx={{ mt: 4 }}>

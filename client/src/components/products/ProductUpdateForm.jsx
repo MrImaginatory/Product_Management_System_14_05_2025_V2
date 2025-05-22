@@ -3,22 +3,30 @@ import React, { useEffect, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, Autocomplete, Stack,
-  FormGroup, FormControlLabel, Checkbox, RadioGroup, Radio, IconButton
+  FormGroup, FormControlLabel, Checkbox, RadioGroup, Radio, IconButton, CircularProgress
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import axiosClient from '../../services/axiosClient';
 import CKEditorComponent from '../common/RichTextEditor';
 import ImagePreview from '../common/FileUpload';
 import { useParams } from 'react-router-dom';
+import SubCategoryForm from '../categories/SubCategoryForm';
+import AddIcon from '@mui/icons-material/Add';
+import { useSnackbar } from '../../context/SnackbarContext'
 
 const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubcategories, setSelectedSubcategories] = useState([]);
-
   const [displayImage, setDisplayImage] = useState(null);
   const [productImages, setProductImages] = useState([]);
+  const [existingDisplayImage, setExistingDisplayImage] = useState(null);
+  const [existingProductImages, setExistingProductImages] = useState([]);
+  const [openSubForm, setOpenSubForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const { showSnackbar } = useSnackbar();
 
   const [form, setForm] = useState({
     productName: '',
@@ -52,6 +60,9 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
       });
 
       setSelectedSubcategories(initialData.subCategoryName || []);
+
+      setExistingDisplayImage(initialData.productDisplayImage || null);
+      setExistingProductImages(initialData.productImages || []);
     }
   }, [open, initialData]);
 
@@ -60,7 +71,6 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
       const res = await axiosClient.get('/categories');
       setCategories(res.data.categories);
     };
-
     if (open) fetchCategories();
   }, [open]);
 
@@ -76,6 +86,7 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
   };
 
   const handleSubmit = async () => {
+    setLoading(true);
     try {
       const formData = new FormData();
       formData.append('productName', form.productName);
@@ -95,11 +106,14 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
       await axiosClient.patch(`/updateProduct/${productId}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-
+        showSnackbar('Product updated successfully!', 'success');
       onSuccess();
       onClose();
     } catch (err) {
+      showSnackbar(err?.response?.data?.message || 'Update failed', 'error');
       console.error('Error updating product:', err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -129,23 +143,60 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
             renderInput={(params) => <TextField {...params} label="Category" />}
           />
 
-          <Autocomplete
-            multiple
-            options={subcategories}
-            getOptionLabel={(opt) => opt}
-            value={selectedSubcategories}
-            onChange={(_, val) => setSelectedSubcategories(val)}
-            renderInput={(params) => <TextField {...params} label="Subcategories" />}
-          />
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Autocomplete
+              multiple
+              options={subcategories}
+              getOptionLabel={(opt) => opt}
+              value={selectedSubcategories}
+              onChange={(_, val) => setSelectedSubcategories(val)}
+              renderInput={(params) => <TextField {...params} label="Subcategories" />}
+              fullWidth
+            />
+            {selectedCategory && (
+              <IconButton onClick={() => setOpenSubForm(true)} color="primary">
+                <AddIcon />
+              </IconButton>
+            )}
+          </Stack>
+
+          {/* Show existing display image */}
+          {existingDisplayImage && (
+            <div>
+              <label>Existing Display Image:</label> <br/>
+              <img
+                src={existingDisplayImage}
+                alt="Display"
+                style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 8, marginTop: 8 }}
+              />
+            </div>
+          )}
 
           <ImagePreview
-            label="Display Image (change optional)"
+            label="Upload New Display Image (optional)"
             file={displayImage}
             onFileChange={setDisplayImage}
           />
 
+          {/* Show existing product images */}
+          {existingProductImages.length > 0 && (
+            <div>
+              <label>Existing Additional Images:</label><br/>
+              <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
+                {existingProductImages.map((imgUrl, idx) => (
+                  <img
+                    key={idx}
+                    src={imgUrl}
+                    alt={`Additional ${idx}`}
+                    style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 8 }}
+                  />
+                ))}
+              </Stack>
+            </div>
+          )}
+
           <ImagePreview
-            label="Additional Images"
+            label="Upload New Additional Images"
             fileList={productImages}
             onFileListChange={setProductImages}
             multiple
@@ -224,9 +275,38 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSubmit}>Update Product</Button>
+        <Button onClick={onClose} variant="outlined" disabled={loading}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={loading}
+          startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+        >
+          {loading ? 'Submitting...' : 'Update Product'}
+        </Button>
       </DialogActions>
+
+      <SubCategoryForm
+        open={openSubForm}
+        onClose={() => setOpenSubForm(false)}
+        onSuccess={async () => {
+          setOpenSubForm(false);
+          try {
+            const res = await axiosClient.get('/categories');
+            setCategories(res.data.categories);
+
+            const updatedCategory = res.data.categories.find(cat => cat._id === selectedCategory._id);
+            setSubcategories(updatedCategory?.subCategoriesName || []);
+            setSelectedCategory(updatedCategory);
+          } catch (err) {
+            console.error('Error refreshing categories:', err.message);
+          }
+        }}
+        mode="create"
+        categoryId={selectedCategory?._id}
+      />
     </Dialog>
   );
 };

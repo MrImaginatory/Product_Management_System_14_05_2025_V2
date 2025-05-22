@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Autocomplete, Stack, IconButton
+  Button, TextField, Autocomplete, Stack, IconButton,
+  Snackbar
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import axiosClient from '../../services/axiosClient';
+import { useSnackbar } from '../../context/SnackbarContext';
 
 const SubCategoryForm = ({
   open,
@@ -18,6 +20,7 @@ const SubCategoryForm = ({
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [oldSub, setOldSub] = useState('');
   const [newSub, setNewSub] = useState('');
+  const {showSnackbar } = useSnackbar();
 
   useEffect(() => {
     if (!open) return;
@@ -49,18 +52,21 @@ const SubCategoryForm = ({
         await axiosClient.patch(`/createSubCategory/${selectedCategory._id}`, {
           subCategoriesName: newSub,
         });
+        showSnackbar('Subcategory Added successfully!', 'success');
       } else {
         if (!oldSub.trim() || !newSub.trim()) return;
         await axiosClient.patch(`/updateSubCategory/${categoryId}`, {
           oldSubCategoryName: oldSub,
           newSubCategoryName: newSub,
         });
+        showSnackbar('Subcategory Updated successfully!', 'success');
       }
-
+      
       onSuccess();
       onClose();
     } catch (err) {
       console.error('Failed to submit subcategory:', err.message);
+      showSnackbar(err?.response?.data?.message||'Failed to perform the operation', 'error');
     }
   };
 
