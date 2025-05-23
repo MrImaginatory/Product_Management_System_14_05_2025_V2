@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import {
     Box,
@@ -12,17 +12,22 @@ import {
     TableBody,
     TextField,
     Stack,
-    Pagination,
     CircularProgress,
+    InputAdornment,
+    IconButton,
 } from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
+import debounce from 'lodash/debounce';
+
 import axiosClient from '../services/axiosClient';
 import CategoryForm from '../components/categories/CategoryForm';
 import SubCategoryForm from '../components/categories/SubCategoryForm';
-import { useSnackbar } from '../context/SnackbarContext'
+import { useSnackbar } from '../context/SnackbarContext';
+import CustomPagination from '../components/common/CustomPagination';
 
 const CategoryPage = () => {
     const [categories, setCategories] = useState([]);
-    const [searchCategory, setSearchCategory] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -31,27 +36,62 @@ const CategoryPage = () => {
 
     const { showSnackbar } = useSnackbar();
 
-    const fetchCategories = async () => {
-        try {
-            setLoading(true);
-            const res = await axiosClient.get(`/categories?page=${page}&searchCategory=${searchCategory}`);
-            setCategories(res.data.categories);
-            setTotalPages(Math.ceil(res.data.matchingCount / res.data.limit));
-        } catch (err) {
-            console.error('Error fetching categories:', err.message);
-            showSnackbar(err?.response?.data?.message || 'Fetching Data failed', 'error');
-        } finally {
-            setLoading(false);
-        }
+    // fetchCategories is wrapped in useCallback to keep stable reference for debounce
+    const fetchCategories = useCallback(
+        async (searchValue = searchTerm, pageValue = page) => {
+            try {
+                setLoading(true);
+                const res = await axiosClient.get('/categories', {
+                    params: {
+                        search: searchValue,
+                        page: pageValue,
+                        limit: 10,
+                    },
+                });
+                setCategories(res.data.categories);
+                setTotalPages(Math.ceil(res.data.matchingCount / res.data.limit));
+            } catch (err) {
+                console.error('Error fetching categories:', err.message);
+                showSnackbar(err?.response?.data?.message || 'Fetching Data failed', 'error');
+            } finally {
+                setLoading(false);
+            }
+        },
+        [searchTerm, page, showSnackbar]
+    );
+
+    // Debounced fetch for search input (1 second)
+    const debouncedFetch = useMemo(
+        () =>
+            debounce((searchValue) => {
+                setPage(1);
+                fetchCategories(searchValue, 1);
+            }, 1000),
+        [fetchCategories]
+    );
+
+    // Effect to fetch categories on page change (except when page is reset by search)
+    useEffect(() => {
+        fetchCategories(searchTerm, page);
+    }, [page, fetchCategories, searchTerm]);
+
+    // Clean up debounce on unmount
+    useEffect(() => {
+        return () => {
+            debouncedFetch.cancel();
+        };
+    }, [debouncedFetch]);
+
+    const handleClearSearch = () => {
+        setSearchTerm('');
+        setPage(1);
+        fetchCategories('', 1); // fetch all categories on clear
     };
 
-    useEffect(() => {
-        fetchCategories();
-    }, [page])
-
-    const handleSearch = () => {
-        setPage(1);
-        fetchCategories();
+    const handleSearchInputChange = (e) => {
+        const value = e.target.value;
+        setSearchTerm(value);
+        debouncedFetch(value);
     };
 
     return (
@@ -63,24 +103,47 @@ const CategoryPage = () => {
                         <Button variant="contained" color="primary" onClick={() => setOpenAdd(true)}>
                             Add Category
                         </Button>
-
                         <Button variant="contained" color="secondary" onClick={() => setOpenSub(true)}>
                             Add Subcategory
                         </Button>
-
                     </Stack>
                 </Stack>
 
                 <Stack direction="row" spacing={2} mb={2}>
                     <TextField
-                        label="Search Category"
+                        label="Search Categories or Subcategories"
                         variant="outlined"
                         size="small"
-                        value={searchCategory}
-                        onChange={(e) => setSearchCategory(e.target.value)
-                        }
+                        value={searchTerm}
+                        onChange={handleSearchInputChange}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                // immediate search on enter without debounce
+                                debouncedFetch.cancel();
+                                setPage(1);
+                                fetchCategories(searchTerm, 1);
+                            }
+                        }}
+                        InputProps={{
+                            endAdornment: searchTerm ? (
+                                <InputAdornment position="end">
+                                    <IconButton size="small" onClick={handleClearSearch} aria-label="clear search">
+                                        <ClearIcon />
+                                    </IconButton>
+                                </InputAdornment>
+                            ) : null,
+                        }}
                     />
-                    <Button variant="outlined" onClick={handleSearch}>Search</Button>
+                    <Button
+                        variant="outlined"
+                        onClick={() => {
+                            debouncedFetch.cancel();
+                            setPage(1);
+                            fetchCategories(searchTerm, 1);
+                        }}
+                    >
+                        Search
+                    </Button>
                 </Stack>
 
                 {loading ? (
@@ -105,7 +168,7 @@ const CategoryPage = () => {
                                         <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
                                         <TableCell>{cat.categoryName}</TableCell>
                                         <TableCell>{cat.slug}</TableCell>
-                                        <TableCell>{cat.subCategoriesName?.map(sub => sub.replace(/_/g, ' ')).join(', ')}</TableCell>
+                                        <TableCell>{cat.subCategoriesName?.map((sub) => sub.replace(/_/g, ' ')).join(', ')}</TableCell>
                                         <TableCell>
                                             {cat.categoryDescription.length > 100 ? (
                                                 <>
@@ -117,7 +180,7 @@ const CategoryPage = () => {
                                                     <Button
                                                         size="small"
                                                         variant="text"
-                                                        onClick={() => window.location.href = `/category/${cat._id}`}
+                                                        onClick={() => (window.location.href = `/category/${cat._id}`)}
                                                     >
                                                         Read More
                                                     </Button>
@@ -131,38 +194,27 @@ const CategoryPage = () => {
                                             )}
                                         </TableCell>
 
+                                        <TableCell>{cat.categoryImage && <img src={cat.categoryImage} alt="thumb" width={50} height={50} />}</TableCell>
                                         <TableCell>
-                                            {cat.categoryImage && (
-                                                <img src={cat.categoryImage} alt="thumb" width={50} height={50} />
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Button size="small" variant="outlined" href={`/category/${cat._id}`}>View</Button>
+                                            <Button size="small" variant="outlined" href={`/category/${cat._id}`}>
+                                                View
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
                         <Box mt={3} display="flex" justifyContent="center">
-                            <Pagination count={totalPages} page={page} onChange={(e, val) => setPage(val)} />
+                            <CustomPagination page={page} totalPages={totalPages} onChange={(val) => setPage(val)} />
                         </Box>
                     </Box>
                 )}
             </Container>
-            <CategoryForm
-                open={openAdd}
-                onClose={() => setOpenAdd(false)}
-                onSuccess={fetchCategories}
-            />
-            <SubCategoryForm
-                open={openSub}
-                onClose={() => setOpenSub(false)}
-                onSuccess={fetchCategories}
-            />
 
+            <CategoryForm open={openAdd} onClose={() => setOpenAdd(false)} onSuccess={() => fetchCategories(searchTerm, page)} />
+            <SubCategoryForm open={openSub} onClose={() => setOpenSub(false)} onSuccess={() => fetchCategories(searchTerm, page)} />
         </>
     );
-
 };
 
 export default CategoryPage;

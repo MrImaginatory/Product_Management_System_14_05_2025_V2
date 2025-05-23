@@ -6,11 +6,13 @@ import {createCategory,
         updateSubCategory,
         deleteSubCategory,
         getCategories,
-        getCategory} from '../controllers/category.controller.js'
+        getCategory,
+        getSubCategories} from '../controllers/category.controller.js'
 import { uploadCategoryImage } from '../middlewares/multer.middleware.js';
 const categoryRouter = Router();
 
 categoryRouter.route('/categories').get(getCategories);
+categoryRouter.route('/subCategories').get(getSubCategories);
 categoryRouter.route('/category/:categoryId').get(getCategory);
 categoryRouter.route('/createCategory').post(uploadCategoryImage,createCategory);
 categoryRouter.route('/updateCategory/:categoryId').patch(uploadCategoryImage,updateCategory);

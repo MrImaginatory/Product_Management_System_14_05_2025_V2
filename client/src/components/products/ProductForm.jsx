@@ -1,34 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Autocomplete, Stack, Typography,
-  IconButton, Checkbox, FormControlLabel, FormGroup, RadioGroup, Radio
+  Button, TextField, Autocomplete, Stack, IconButton,
+  Checkbox, FormControlLabel, FormGroup, RadioGroup, Radio,
+  CircularProgress
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import AddIcon from '@mui/icons-material/Add';
 import axiosClient from '../../services/axiosClient';
 import ImagePreview from '../common/FileUpload';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import CKEditorComponent from '../common/RichTextEditor';
-import AddIcon from '@mui/icons-material/Add';
 import SubCategoryForm from '../categories/SubCategoryForm';
-import { CircularProgress } from '@mui/material';
-import { useSnackbar } from '../../context/SnackbarContext'
+import { useSnackbar } from '../../context/SnackbarContext';
 
 const schema = yup.object().shape({
   productName: yup.string().required('Product Name is required'),
   categoryName: yup.string().required('Category Name is required'),
-  subCategoriesName: yup.string().required('Subcategories Name is required'),
+  subCategoriesName: yup.array().min(1, 'At least one Subcategory is required'),
   productPrice: yup.number().positive().required('Product Price is required'),
-  productSalePrice: yup.number().positive().required().test('is-less-than-price', 'Sale price must be less than product price', function (value) {
-    const { productPrice } = this.parent;
-    return value < productPrice;
-  }),
+  productSalePrice: yup.number()
+    .positive()
+    .required('Sale Price is required')
+    .test(
+      'is-less-than-price',
+      'Sale price must be less than product price',
+      function (value) {
+        const { productPrice } = this.parent;
+        return value < productPrice;
+      }
+    ),
   stock: yup.number().min(0).required('Stock is required'),
   weight: yup.number().positive().required('Weight is required'),
   availability: yup.string().required('Availability is required'),
-  productType: yup.array().of(yup.string()).min(1),
+  productType: yup.array().of(yup.string()).min(1, 'Select at least one product type'),
   productDescription: yup.string().required('Product Description is required'),
 });
 
@@ -42,14 +49,16 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
   const [openSubForm, setOpenSubForm] = useState(false);
   const [loading, setLoading] = useState(false);
 
-    const { showSnackbar } = useSnackbar();
+  const { showSnackbar } = useSnackbar();
 
   const {
-    control, handleSubmit, setValue, reset, watch, getValues, formState: { errors }
+    control, handleSubmit, setValue, reset, formState: { errors }
   } = useForm({
     resolver: yupResolver(schema),
     defaultValues: {
       productName: '',
+      categoryName: '',
+      subCategoriesName: [],
       productPrice: '',
       productSalePrice: '',
       stock: '',
@@ -62,7 +71,7 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
 
   const fetchCategories = async () => {
     try {
-      const res = await axiosClient.get('/categories');
+      const res = await axiosClient.get('/subCategories');
       setCategories(res.data.categories);
     } catch (err) {
       console.error('Error loading categories:', err.message);
@@ -72,25 +81,41 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
   useEffect(() => {
     if (open) {
       fetchCategories();
+      reset();  // Clear form on open
+      setSelectedCategory(null);
+      setSelectedSubcategories([]);
+      setDisplayImage(null);
+      setProductImages([]);
     }
-  }, [open]);
+  }, [open, reset]);
 
   useEffect(() => {
     if (selectedCategory) {
-      const match = categories.find(cat => cat._id === selectedCategory._id);
-      setSubcategories(match?.subCategoriesName || []);
+      const matchedCategory = categories.find(cat => cat._id === selectedCategory._id);
+      setSubcategories(matchedCategory?.subCategoriesName || []);
     } else {
       setSubcategories([]);
+      setSelectedSubcategories([]);
     }
   }, [selectedCategory, categories]);
+
+  // Sync categoryName field in react-hook-form with selectedCategory state
+  useEffect(() => {
+    setValue('categoryName', selectedCategory ? selectedCategory._id : '');
+  }, [selectedCategory, setValue]);
+
+  // Sync subCategoriesName field in react-hook-form with selectedSubcategories state
+  useEffect(() => {
+    setValue('subCategoriesName', selectedSubcategories);
+  }, [selectedSubcategories, setValue]);
 
   const onSubmit = async (data) => {
     setLoading(true);
     try {
       const formData = new FormData();
       formData.append('productName', data.productName);
-      formData.append('categoryName', selectedCategory._id);
-      selectedSubcategories.forEach((sub) => formData.append('subCategoryName', sub));
+      formData.append('categoryName', data.categoryName);
+      data.subCategoriesName.forEach((sub) => formData.append('subCategoryName', sub));
       formData.append('productDescription', data.productDescription);
       formData.append('productPrice', data.productPrice);
       formData.append('productSalePrice', data.productSalePrice);
@@ -104,6 +129,7 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
       await axiosClient.post('/createProduct', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+
       reset();
       setDisplayImage(null);
       setProductImages([]);
@@ -114,7 +140,7 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
       onClose();
     } catch (err) {
       console.error('Error creating product:', err.message);
-      showSnackbar(err?.response?.data?.message || 'Error creating data', 'error');
+      showSnackbar(err?.response?.data?.message || 'Error creating product', 'error');
     } finally {
       setLoading(false);
     }
@@ -131,6 +157,7 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
 
       <DialogContent dividers>
         <Stack spacing={2}>
+
           <Controller
             name="productName"
             control={control}
@@ -144,7 +171,14 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
             getOptionLabel={(option) => option.categoryName}
             value={selectedCategory}
             onChange={(_, val) => setSelectedCategory(val)}
-            renderInput={(params) => <TextField {...params} label="Category" error={!!errors.categoryName} helperText={errors.categoryName?.message}  />}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Category"
+                error={!!errors.categoryName}
+                helperText={errors.categoryName?.message}
+              />
+            )}
           />
 
           <Stack direction="row" spacing={1} alignItems="center">
@@ -154,7 +188,14 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
               getOptionLabel={(opt) => opt}
               value={selectedSubcategories}
               onChange={(_, val) => setSelectedSubcategories(val)}
-              renderInput={(params) => <TextField {...params} label="Subcategories" error={!!errors.subCategoriesName} helperText={errors.subCategoriesName?.message}/>}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Subcategories"
+                  error={!!errors.subCategoriesName}
+                  helperText={errors.subCategoriesName?.message}
+                />
+              )}
               fullWidth
             />
             {selectedCategory && (
@@ -164,11 +205,11 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
             )}
           </Stack>
 
-
-          <ImagePreview 
-            label="Product Display Image" 
-            file={displayImage} 
-            onFileChange={setDisplayImage}   />
+          <ImagePreview
+            label="Product Display Image"
+            file={displayImage}
+            onFileChange={setDisplayImage}
+          />
 
           <ImagePreview
             label="Product Images"
@@ -183,14 +224,14 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
               name="productPrice"
               control={control}
               render={({ field }) => (
-                <TextField {...field} label="Price" type="number" fullWidth error={!!errors.productPrice} />
+                <TextField {...field} label="Price" type="number" fullWidth error={!!errors.productPrice} helperText={'Product Price Must Be A Number'} />
               )}
             />
             <Controller
               name="productSalePrice"
               control={control}
               render={({ field }) => (
-                <TextField {...field} label="Sale Price" type="number" fullWidth error={!!errors.productSalePrice} />
+                <TextField {...field} label="Sale Price" type="number" fullWidth error={!!errors.productSalePrice} helperText={'Sale price Should be a number and Must be less than Product Price'} />
               )}
             />
           </Stack>
@@ -200,14 +241,14 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
               name="stock"
               control={control}
               render={({ field }) => (
-                <TextField {...field} label="Stock" type="number" fullWidth error={!!errors.stock} />
+                <TextField {...field} label="Stock" type="number" fullWidth error={!!errors.stock} helperText={'Stock Should be a Number'} />
               )}
             />
             <Controller
               name="weight"
               control={control}
               render={({ field }) => (
-                <TextField {...field} label="Weight in Kgs" type="number" fullWidth error={!!errors.weight} />
+                <TextField {...field} label="Weight in Kgs" type="number" fullWidth error={!!errors.weight} helperText={'Weight Should be a Number'} />
               )}
             />
           </Stack>
@@ -222,6 +263,9 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
               </RadioGroup>
             )}
           />
+          {errors.availability && (
+            <p style={{ color: 'red', marginTop: -10, marginBottom: 10, size: 5}}>{errors.availability.message}</p>
+          )}
 
           <Controller
             name="productType"
@@ -240,12 +284,15 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
                         }}
                       />
                     }
-                    label={type.replace('_', ' ')}
+                    label={type.replace(/_/g, ' ')}
                   />
                 ))}
               </FormGroup>
             )}
           />
+          {errors.productType && (
+            <p style={{ color: 'red', marginTop: -10, marginBottom: 10 }}>{errors.productType.message}</p>
+          )}
 
           <Controller
             name="productDescription"
@@ -256,11 +303,11 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
                 value={field.value}
                 onChange={field.onChange}
                 error={!!errors.productDescription}
+                helperText={errors.productDescription?.message}
               />
             )}
           />
         </Stack>
-
       </DialogContent>
 
       <DialogActions>
@@ -268,32 +315,24 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
           Cancel
         </Button>
         <Button
-  onClick={handleSubmit(onSubmit)}
-  variant="contained"
-  disabled={loading}
-  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
->
-  {loading ? 'Submitting...' : 'Add Product'}
-</Button>
-
+          onClick={handleSubmit(onSubmit)}
+          variant="contained"
+          disabled={loading}
+          startIcon={loading && <CircularProgress size={20} />}
+        >
+          Save
+        </Button>
       </DialogActions>
 
       <SubCategoryForm
         open={openSubForm}
         onClose={() => setOpenSubForm(false)}
-        onSuccess={async () => {
-          setOpenSubForm(false);
-          try {
-            const res = await axiosClient.get('/categories');
-            setCategories(res.data.categories);
-            const updatedCategory = res.data.categories.find(cat => cat._id === selectedCategory._id);
-            setSubcategories(updatedCategory?.subCategoriesName || []);
-          } catch (err) {
-            console.error('Error refreshing categories:', err.message);
-          }
-        }}
-        mode="create"
         categoryId={selectedCategory?._id}
+        onSuccess={() => {
+          fetchCategories();
+          setOpenSubForm(false);
+        }}
+        
       />
     </Dialog>
   );

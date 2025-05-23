@@ -55,7 +55,7 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
       });
 
       setSelectedCategory({
-        _id: initialData.categoryId || initialData.categoryName,
+        _id: initialData.categoryId || '',
         categoryName: initialData.categoryName.categoryName,
       });
 

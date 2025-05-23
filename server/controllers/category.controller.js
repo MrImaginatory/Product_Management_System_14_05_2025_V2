@@ -218,7 +218,7 @@ const updateSubCategory = asyncWrapper(async (req, res) => {
     return res.status(404).json({ message: "Category not found" });
   }
 
-    const sanitizedNewSubCategoryName = newSubCategoryName.replace(/\s+/g, "_");
+  const sanitizedNewSubCategoryName = newSubCategoryName.replace(/\s+/g, "_");
 
   const subCategoryIndex = categoryExists.subCategoriesName.indexOf(oldSubCategoryName);
   if (subCategoryIndex === "-1") {
@@ -263,17 +263,19 @@ const getCategories = asyncWrapper(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const skip = (page - 1) * limit;
-  const { searchCategory, searchSubCategory } = req.query;
+  const { search } = req.query;
 
   let filter = {};
 
-  if (searchCategory) {
-    filter.categoryName = { $regex: searchCategory, $options: "i" };
+  if(search){
+    filter = {
+      $or: [
+        { categoryName: { $regex: search, $options: "i" } },
+        { subCategoriesName: { $regex: search, $options: "i" } }
+      ]
+    }
   }
 
-  if (searchSubCategory) {
-    filter.subCategoriesName = { $regex: searchSubCategory, $options: "i" };
-  }
   const categories = await Category.find(filter).skip(skip).limit(limit);
   const totalMatching = await Category.countDocuments(filter);
   if (categories.length === 0) {
@@ -286,10 +288,7 @@ const getCategories = asyncWrapper(async (req, res) => {
     });
   }
   return res.status(200).json({
-    message:
-      searchCategory || searchSubCategory
-        ? "Filtered categories fetched successfully"
-        : "Categories fetched successfully",
+    message: "Categories fetched successfully",
     page,
     limit,
     matchingCount: totalMatching,
@@ -297,13 +296,30 @@ const getCategories = asyncWrapper(async (req, res) => {
   });
 });
 
+const getSubCategories = asyncWrapper(async (req, res) => {
+  const categories = await Category.find();
+  if (categories.length === 0) {
+    return res.status(200).json({
+      message: "No categories found",
+      page,
+      limit,
+      matchingCount: 0,
+      categories: [],
+    });
+  }
+  return res.status(200).json({
+    message: "Categories fetched successfully",
+    categories,
+  });
+})
+
 const getCategory = asyncWrapper(async (req, res) => {
   const { categoryId } = req.params;
   const category = await Category.findById(categoryId);
   if (!category) {
     throw new ApiError(404, "Category not found");
   }
-  return res.status(200).json({  message: "Category fetched successfully", category });
+  return res.status(200).json({ message: "Category fetched successfully", category });
 })
 
 export {
@@ -314,5 +330,6 @@ export {
   updateSubCategory,
   deleteSubCategory,
   getCategories,
-  getCategory
+  getCategory,
+  getSubCategories
 };

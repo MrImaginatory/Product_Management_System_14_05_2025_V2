@@ -286,6 +286,10 @@ const getAllProducts = asyncWrapper(async (req, res) => {
         .sort({ createdAt: -1 })
         .populate("categoryName", "categoryName"); 
 
+        if(products.length === 0){
+            throw new ApiError(404, "No products found");
+        }
+
     return res.status(200).json({
         message: "Products fetched successfully",
         totalProducts: await Product.countDocuments(),
@@ -294,6 +298,24 @@ const getAllProducts = asyncWrapper(async (req, res) => {
         products,
     });
 });
+
+const getProducts = asyncWrapper(async(req,res)=>{
+    const products = await Product.find()
+                                .sort({ createdAt: -1 })
+                                .populate("categoryName", "categoryName");
+    if(products.length === 0){
+        throw new ApiError(404, "No products found");
+    }
+
+                                return res.status(200).json({
+        message: "Products fetched successfully",
+        totalProducts: await Product.countDocuments(),
+        page,
+        limit,
+        products,
+    });
+})
+
 
 const getProduct = asyncWrapper(async (req, res) => {
     const { productId } = req.params;
@@ -308,4 +330,4 @@ const getProduct = asyncWrapper(async (req, res) => {
     });
 })
 
-export { createProduct, updateProduct, deleteProduct, getAllProducts, getProduct };
+export { createProduct, updateProduct, deleteProduct, getAllProducts, getProduct, getProducts };
