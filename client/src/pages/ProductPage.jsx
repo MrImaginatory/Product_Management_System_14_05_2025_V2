@@ -33,7 +33,6 @@ const ProductPage = () => {
 
     const { showSnackbar } = useSnackbar();
 
-    // Fetch products with search and pagination params
     const fetchProducts = useCallback(
         async (searchValue = searchProduct, pageValue = page) => {
             try {
@@ -49,7 +48,6 @@ const ProductPage = () => {
                 setTotalPages(Math.ceil(res.data.totalProducts / res.data.limit));
             } catch (err) {
                 console.error('Error fetching products:', err.message);
-                showSnackbar(err?.response?.data?.message || 'Fetching Data failed', 'error');
             } finally {
                 setLoading(false);
             }
@@ -108,7 +106,7 @@ const ProductPage = () => {
 
             <Stack direction="row" spacing={2} mb={2}>
                 <TextField
-                    label="Search Product"
+                    label="Search Product or Category"
                     variant="outlined"
                     size="small"
                     value={searchProduct}

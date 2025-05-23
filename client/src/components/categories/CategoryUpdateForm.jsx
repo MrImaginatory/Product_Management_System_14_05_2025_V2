@@ -1,4 +1,3 @@
-// src/components/categories/CategoryUpdateForm.jsx
 import React, { useEffect, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -16,17 +15,31 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
   const [description, setDescription] = useState('');
   const [image, setImage] = useState(null);
 
-  const {    showSnackbar } = useSnackbar();
+  const [errors, setErrors] = useState({});
+  const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
     if (open && initialData) {
-      setCategoryName(initialData.categoryName);
-      setSlug(initialData.slug);
-      setDescription(initialData.categoryDescription);
+      setCategoryName(initialData.categoryName || '');
+      setSlug(initialData.slug || '');
+      setDescription(initialData.categoryDescription || '');
+      setImage(null); // Reset image field when dialog opens
+      setErrors({});
     }
   }, [open, initialData]);
 
+  const validate = () => {
+    const newErrors = {};
+    if (!categoryName.trim()) newErrors.categoryName = 'Category name is required';
+    if (!slug.trim()) newErrors.slug = 'Slug is required';
+    if (!description.trim()) newErrors.description = 'Description is required';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async () => {
+    if (!validate()) return;
+
     const formData = new FormData();
     formData.append('categoryName', categoryName);
     formData.append('slug', slug);
@@ -54,15 +67,36 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
-          <TextField label="Category Name" fullWidth value={categoryName} onChange={(e) => setCategoryName(e.target.value)} />
-          <TextField label="Slug" fullWidth value={slug} onChange={(e) => setSlug(e.target.value)} />
-          <CKEditorComponent label="Description" value={description} onChange={setDescription} />
+          <TextField
+            label="Category Name"
+            fullWidth
+            value={categoryName}
+            onChange={(e) => setCategoryName(e.target.value)}
+            error={!!errors.categoryName}
+            helperText={errors.categoryName}
+          />
+          <TextField
+            label="Slug"
+            fullWidth
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            error={!!errors.slug}
+            helperText={errors.slug}
+          />
+          <CKEditorComponent
+            label="Description"
+            value={description}
+            onChange={setDescription}
+            error={!!errors.description}
+          />
           <ImagePreview file={image} onFileChange={setImage} label="Change Image (optional)" />
         </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSubmit}>Update</Button>
+        <Button variant="contained" onClick={handleSubmit}>
+          Update
+        </Button>
       </DialogActions>
     </Dialog>
   );

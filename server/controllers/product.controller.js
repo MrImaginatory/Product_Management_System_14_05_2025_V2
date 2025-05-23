@@ -276,8 +276,18 @@ const getAllProducts = asyncWrapper(async (req, res) => {
 
     let filter = {};
 
+    const matchingCategories = await Category.find({
+    categoryName: { $regex: searchProduct, $options: "i" }
+    }).select("_id");
+
+    const matchingCategoryIds = matchingCategories.map(cat => cat._id);
+
     if (searchProduct) {
-        filter = { productName: { $regex: searchProduct, $options: "i" } };
+        filter = { $or: [
+                { productName: { $regex: searchProduct, $options: "i" } },
+                { categoryName: { $in: matchingCategoryIds } },
+            ]
+        }
     }
 
     const products = await Product.find(filter)
@@ -299,7 +309,7 @@ const getAllProducts = asyncWrapper(async (req, res) => {
     });
 });
 
-const getProducts = asyncWrapper(async(req,res)=>{
+const getProducts = asyncWrapper(async (req,res)=>{
     const products = await Product.find()
                                 .sort({ createdAt: -1 })
                                 .populate("categoryName", "categoryName");
@@ -315,7 +325,6 @@ const getProducts = asyncWrapper(async(req,res)=>{
         products,
     });
 })
-
 
 const getProduct = asyncWrapper(async (req, res) => {
     const { productId } = req.params;

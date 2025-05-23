@@ -19,13 +19,14 @@ import CKEditorComponent from '../common/RichTextEditor';
 import { useSnackbar } from '../../context/SnackbarContext';
 
 const schema = yup.object().shape({
-    categoryName: yup.string().min(3).max(50).required(),
-    slug: yup.string().min(3).required(),
-    categoryDescription: yup.string().min(10).max(999).required(),
+    categoryName: yup.string().min(3).max(50).required('Category name is required'),
+    slug: yup.string().min(3).required('Slug is required'),
+    categoryDescription: yup.string().min(10).max(999).required('Description is required'),
 });
 
 const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = false }) => {
     const [imageFile, setImageFile] = useState(null);
+
     const {
         control,
         handleSubmit,
@@ -34,6 +35,7 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
         watch,
         formState: { errors },
     } = useForm({
+        mode: 'onSubmit', // Only validate on submit
         resolver: yupResolver(schema),
         defaultValues: {
             categoryName: '',
@@ -42,27 +44,26 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
         },
     });
 
-    const {    showSnackbar } = useSnackbar();
-
+    const { showSnackbar } = useSnackbar();
     const categoryNameValue = watch('categoryName');
 
-    // 🔧 Utility to generate slug from categoryName
+    // 🔧 Generate slug from category name
     const generateSlug = (text) => {
         return text
             .toLowerCase()
             .trim()
-            .replace(/[^\w\s-]/g, '') // remove special characters
-            .replace(/\s+/g, '-')     // replace spaces with -
-            .replace(/-+/g, '-');     // collapse multiple hyphens
+            .replace(/[^\w\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-');
     };
 
-    // 🎯 Watch categoryName and auto-update slug
+    // 🎯 Auto-update slug as category name changes
     useEffect(() => {
         const newSlug = generateSlug(categoryNameValue || '');
-        setValue('slug', newSlug, { shouldValidate: true });
+        setValue('slug', newSlug, { shouldValidate: false }); // Prevent immediate validation
     }, [categoryNameValue, setValue]);
 
-    // 📦 Set initial values when editing
+    // 📦 Set initial values in edit mode
     useEffect(() => {
         if (isEdit && initialData) {
             setValue('categoryName', initialData.categoryName || '');
@@ -94,6 +95,7 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
             }
+
             showSnackbar('Category saved successfully!', 'success');
             reset();
             setImageFile(null);
