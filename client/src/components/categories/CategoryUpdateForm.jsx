@@ -14,6 +14,7 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const [errors, setErrors] = useState({});
   const { showSnackbar } = useSnackbar();
@@ -45,7 +46,7 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
     formData.append('slug', slug);
     formData.append('categoryDescription', description);
     if (image) formData.append('categoryImage', image);
-
+    setLoading(true)
     try {
       await axiosClient.patch(`/updateCategory/${initialData._id}`, formData);
       onSuccess();
@@ -54,6 +55,8 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
     } catch (err) {
       console.error('Error updating category:', err.message);
       showSnackbar(err?.response?.data?.message || 'Error updating data', 'error');
+    }finally{
+      setLoading(false);
     }
   };
 
@@ -94,7 +97,7 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSubmit}>
+        <Button variant="contained" onClick={handleSubmit} disabled={loading} startIcon={loading && <CircularProgress size={20} />} >
           Update
         </Button>
       </DialogActions>

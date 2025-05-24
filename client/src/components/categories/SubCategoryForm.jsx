@@ -18,10 +18,9 @@ const SubCategoryForm = ({
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [oldSub, setOldSub] = useState('');
-
-  // ✅ New states for multi-subcategory input
   const [newSubInput, setNewSubInput] = useState('');
   const [newSubs, setNewSubs] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const { showSnackbar } = useSnackbar();
 
@@ -57,6 +56,7 @@ const SubCategoryForm = ({
   };
 
   const handleSubmit = async () => {
+    setLoading(true);
     try {
       if (mode === 'create') {
         if (!selectedCategory || newSubs.length === 0) return;
@@ -78,6 +78,8 @@ const SubCategoryForm = ({
     } catch (err) {
       console.error('Failed to submit subcategory:', err.message);
       showSnackbar(err?.response?.data?.message || 'Operation failed', 'error');
+    }finally{
+      setLoading(false);
     }
   };
 
@@ -171,7 +173,7 @@ const SubCategoryForm = ({
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={mode === 'create' ? newSubs.length === 0 : !newSubInput.trim()}
+          disabled={(mode === 'create') ? newSubs.length === 0 : !newSubInput.trim()}
         >
           {mode === 'create' ? 'Add' : 'Update'}
         </Button>

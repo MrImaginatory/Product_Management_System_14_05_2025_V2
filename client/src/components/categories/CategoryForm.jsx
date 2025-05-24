@@ -8,6 +8,7 @@ import {
     TextField,
     Stack,
     IconButton,
+    CircularProgress
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useForm, Controller } from 'react-hook-form';
@@ -72,11 +73,14 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
         }
     }, [initialData, isEdit, setValue]);
 
+    const [loading,setLoading] = useState(false);
+
     const handleImageSelect = (file) => {
         setImageFile(file);
     };
 
     const onSubmit = async (data) => {
+        setLoading(true);
         try {
             const formData = new FormData();
             formData.append('categoryName', data.categoryName);
@@ -104,6 +108,8 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
         } catch (err) {
             console.error('Error submitting category:', err.message);
             showSnackbar(err?.response?.data?.message || 'Error saving data', 'error');
+        }finally{
+            setLoading(false);
         }
     };
 
@@ -166,7 +172,7 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleClose} variant="outlined">Cancel</Button>
-                <Button onClick={handleSubmit(onSubmit)} variant="contained">
+                <Button onClick={handleSubmit(onSubmit)} variant="contained" disabled={loading} startIcon={loading && <CircularProgress size={20} />} > 
                     {isEdit ? 'Update' : 'Add'}
                 </Button>
             </DialogActions>
