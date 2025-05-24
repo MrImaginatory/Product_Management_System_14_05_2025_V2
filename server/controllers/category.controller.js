@@ -267,7 +267,7 @@ const getCategories = asyncWrapper(async (req, res) => {
 
   let filter = {};
 
-  if(search){
+  if (search) {
     filter = {
       $or: [
         { categoryName: { $regex: search, $options: "i" } },
@@ -276,7 +276,10 @@ const getCategories = asyncWrapper(async (req, res) => {
     }
   }
 
-  const categories = await Category.find(filter).skip(skip).limit(limit);
+  const categories = await Category.find(filter)
+    .skip(skip)
+    .limit(limit)
+    .sort({ createdAt: -1 });
   const totalMatching = await Category.countDocuments(filter);
   if (categories.length === 0) {
     return res.status(200).json({
