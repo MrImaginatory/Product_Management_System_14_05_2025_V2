@@ -2,7 +2,7 @@ import Product from "../models/product.model.js";
 import Category from "../models/category.model.js";
 import asyncWrapper from "../utils/asyncWrapper.utils.js";
 import ApiError from "../utils/apiError.utils.js";
-import productValidationSchema from "../validators/Product.validator.js";
+import productValidationSchema from "../validators/product.validator.js";
 import {
     uploadImage,
     deleteMultipleImages,
