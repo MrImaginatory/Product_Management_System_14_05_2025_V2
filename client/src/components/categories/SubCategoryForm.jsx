@@ -78,7 +78,7 @@ const SubCategoryForm = ({
     } catch (err) {
       console.error('Failed to submit subcategory:', err.message);
       showSnackbar(err?.response?.data?.message || 'Operation failed', 'error');
-    }finally{
+    } finally {
       setLoading(false);
     }
   };
@@ -183,4 +183,3 @@ const SubCategoryForm = ({
 };
 
 export default SubCategoryForm;
-  

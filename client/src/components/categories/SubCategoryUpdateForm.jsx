@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import axiosClient from '../../services/axiosClient';
-import {  useSnackbar } from '../../context/SnackbarContext'
+import { useSnackbar } from '../../context/SnackbarContext'
 
 const SubCategoryUpdateForm = ({ open, onClose, onSuccess, categoryId, subCategories }) => {
   const [oldSub, setOldSub] = useState('');

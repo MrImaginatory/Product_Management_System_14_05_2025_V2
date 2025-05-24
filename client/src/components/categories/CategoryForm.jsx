@@ -73,7 +73,7 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
         }
     }, [initialData, isEdit, setValue]);
 
-    const [loading,setLoading] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const handleImageSelect = (file) => {
         setImageFile(file);
@@ -108,7 +108,7 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
         } catch (err) {
             console.error('Error submitting category:', err.message);
             showSnackbar(err?.response?.data?.message || 'Error saving data', 'error');
-        }finally{
+        } finally {
             setLoading(false);
         }
     };
@@ -120,7 +120,11 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
     };
 
     return (
-        <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+        <Dialog open={open} onClose={(event, reason) => {
+            if (reason !== 'backdropClick') {
+                handleClose();
+            }
+        }} maxWidth="sm" fullWidth>
             <DialogTitle>
                 {isEdit ? 'Edit Category' : 'Add Category'}
                 <IconButton onClick={handleClose} sx={{ position: 'absolute', right: 8, top: 8 }}>
@@ -172,7 +176,7 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleClose} variant="outlined">Cancel</Button>
-                <Button onClick={handleSubmit(onSubmit)} variant="contained" disabled={loading} startIcon={loading && <CircularProgress size={20} />} > 
+                <Button onClick={handleSubmit(onSubmit)} variant="contained" disabled={loading} startIcon={loading && <CircularProgress size={20} />} >
                     {isEdit ? 'Update' : 'Add'}
                 </Button>
             </DialogActions>

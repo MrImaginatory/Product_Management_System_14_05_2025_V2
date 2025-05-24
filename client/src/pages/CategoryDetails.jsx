@@ -99,21 +99,36 @@ const CategoryDetails = () => {
 
             <CategoryUpdateForm
                 open={openEdit}
-                onClose={() => setOpenEdit(false)}
+                onClose={(event, reason) => {
+                    if (reason !== 'backdropClick') {
+                        setOpenEdit(false);
+                    }
+                }}
                 initialData={category}
                 onSuccess={fetchCategory}
             />
 
             <SubCategoryUpdateForm
                 open={openEditSub}
-                onClose={() => setOpenEditSub(false)}
+                onClose={(event, reason) => {
+                    if (reason !== 'backdropClick') {
+                        setOpenEditSub(false);
+                    }
+                }}
                 categoryId={category._id}
                 subCategories={category.subCategoriesName}
                 onSuccess={fetchCategory}
             />
 
             {/* Delete Confirmation */}
-            <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)}>
+            <Dialog
+                open={confirmDelete}
+                onClose={(event, reason) => {
+                    if (reason !== 'backdropClick') {
+                        setConfirmDelete(false);
+                    }
+                }}
+            >
                 <DialogTitle>Confirm Deletion</DialogTitle>
                 <DialogContent>
                     Are you sure you want to delete <strong>{category.categoryName}</strong>?
@@ -123,6 +138,7 @@ const CategoryDetails = () => {
                     <Button onClick={handleDelete} color="error" variant="contained">Delete</Button>
                 </DialogActions>
             </Dialog>
+
         </Container>
     );
 };

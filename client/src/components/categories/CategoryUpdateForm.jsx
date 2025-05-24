@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Stack, IconButton
+  Button, TextField, Stack, IconButton, CircularProgress
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import axiosClient from '../../services/axiosClient';
@@ -9,12 +9,22 @@ import CKEditorComponent from '../common/RichTextEditor';
 import ImagePreview from '../common/FileUpload';
 import { useSnackbar } from '../../context/SnackbarContext';
 
+const generateSlug = (text) => {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+};
+
 const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
   const [categoryName, setCategoryName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isSlugEditedManually, setIsSlugEditedManually] = useState(false);
 
   const [errors, setErrors] = useState({});
   const { showSnackbar } = useSnackbar();
@@ -24,10 +34,19 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
       setCategoryName(initialData.categoryName || '');
       setSlug(initialData.slug || '');
       setDescription(initialData.categoryDescription || '');
-      setImage(null); // Reset image field when dialog opens
+      setImage(null);
       setErrors({});
+      setIsSlugEditedManually(false);
     }
   }, [open, initialData]);
+
+  // 🧠 Auto-generate slug only if user hasn't manually edited it
+  useEffect(() => {
+    if (!isSlugEditedManually) {
+      const newSlug = generateSlug(categoryName);
+      setSlug(newSlug);
+    }
+  }, [categoryName, isSlugEditedManually]);
 
   const validate = () => {
     const newErrors = {};
@@ -46,7 +65,8 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
     formData.append('slug', slug);
     formData.append('categoryDescription', description);
     if (image) formData.append('categoryImage', image);
-    setLoading(true)
+
+    setLoading(true);
     try {
       await axiosClient.patch(`/updateCategory/${initialData._id}`, formData);
       onSuccess();
@@ -55,7 +75,7 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
     } catch (err) {
       console.error('Error updating category:', err.message);
       showSnackbar(err?.response?.data?.message || 'Error updating data', 'error');
-    }finally{
+    } finally {
       setLoading(false);
     }
   };
@@ -74,7 +94,9 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
             label="Category Name"
             fullWidth
             value={categoryName}
-            onChange={(e) => setCategoryName(e.target.value)}
+            onChange={(e) => {
+              setCategoryName(e.target.value);
+            }}
             error={!!errors.categoryName}
             helperText={errors.categoryName}
           />
@@ -82,7 +104,10 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
             label="Slug"
             fullWidth
             value={slug}
-            onChange={(e) => setSlug(e.target.value)}
+            onChange={(e) => {
+              setSlug(e.target.value);
+              setIsSlugEditedManually(true); // Track manual edits
+            }}
             error={!!errors.slug}
             helperText={errors.slug}
           />
@@ -97,7 +122,12 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={loading} startIcon={loading && <CircularProgress size={20} />} >
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={loading}
+          startIcon={loading && <CircularProgress size={20} />}
+        >
           Update
         </Button>
       </DialogActions>

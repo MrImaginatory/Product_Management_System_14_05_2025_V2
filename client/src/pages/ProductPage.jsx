@@ -174,7 +174,11 @@ const ProductPage = () => {
                 </Box>
             )}
 
-            <ProductForm open={openAdd} onClose={() => setOpenAdd(false)} onSuccess={() => fetchProducts(searchProduct, page)} />
+            <ProductForm open={openAdd}
+                onClose={(event, reason) => {
+                    if (reason !== 'backdropClick') setOpenAdd(false);
+                }}
+                onSuccess={() => fetchProducts(searchProduct, page)} />
         </Container>
     );
 };

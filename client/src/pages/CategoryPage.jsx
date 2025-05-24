@@ -211,8 +211,16 @@ const CategoryPage = () => {
                 )}
             </Container>
 
-            <CategoryForm open={openAdd} onClose={() => setOpenAdd(false)} onSuccess={() => fetchCategories(searchTerm, page)} />
-            <SubCategoryForm open={openSub} onClose={() => setOpenSub(false)} onSuccess={() => fetchCategories(searchTerm, page)} />
+            <CategoryForm open={openAdd}
+                onClose={(event, reason) => {
+                    if (reason !== 'backdropClick') setOpenAdd(false);
+                }}
+                onSuccess={() => fetchCategories(searchTerm, page)} />
+            <SubCategoryForm open={openSub}
+                onClose={(event, reason) => {
+                    if (reason !== 'backdropClick') setOpenSub(false);
+                }}
+                onSuccess={() => fetchCategories(searchTerm, page)} />
         </>
     );
 };
