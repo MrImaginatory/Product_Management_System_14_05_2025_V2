@@ -1,4 +1,4 @@
-import CategoryValidateSchema from "../validators/Category.validator.js";
+import CategoryValidateSchema from "../validators/category.validator.js";
 import Category from "../models/category.model.js"
 import Product from "../models/product.model.js";
 import asyncWrapper from "../utils/asyncWrapper.utils.js";
