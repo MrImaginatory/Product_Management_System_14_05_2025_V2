@@ -6,16 +6,16 @@ import productValidationSchema from "../validators/product.validator.js";
 import {
     uploadImage,
     deleteMultipleImages,
+    extractPublicIdFromUrl,
     saveImageLocally,
-    extractPublicIdFromUrl
-} from "../services/cloudinary.service.js";
+} from '../services/cloudinary.service.js'
 
 const createProduct = asyncWrapper(async (req, res) => {
     await productValidationSchema.validate(req.body, { abortEarly: false });
 
     const cloudinaryPublicIds = [];
     let product;
-    
+
     try {
         if (
             !req.files ||
@@ -34,20 +34,20 @@ const createProduct = asyncWrapper(async (req, res) => {
         }
 
         const categoryExists = await Category.findById(req.body.categoryName);
-        
+
         if (!categoryExists) {
             throw new ApiError(400, "Category does not exist.");
         }
 
         const subCategoriesArray = Array.isArray(req.body.subCategoryName)
-        ? req.body.subCategoryName
-        : [req.body.subCategoryName];
+            ? req.body.subCategoryName
+            : [req.body.subCategoryName];
 
         const sanitizedSubCategories = subCategoriesArray.map((name) =>
             name.trim().replace(/\s+/g, "_")
         );
 
-        if(categoryExists.subCategoriesName.includes(sanitizedSubCategories) === '-1') {
+        if (categoryExists.subCategoriesName.includes(sanitizedSubCategories) === '-1') {
             throw new ApiError(400, "Subcategory does not exist.");
         }
 
@@ -61,7 +61,7 @@ const createProduct = asyncWrapper(async (req, res) => {
         product = await Product.create({
             productName: req.body.productName,
             categoryName: req.body.categoryName,
-            subCategoryName:sanitizedSubCategories,
+            subCategoryName: sanitizedSubCategories,
             productDescription: req.body.productDescription,
             productDisplayImage: "",
             productImages: [],
@@ -123,47 +123,54 @@ const createProduct = asyncWrapper(async (req, res) => {
 
 const updateProduct = asyncWrapper(async (req, res) => {
     const { productId } = req.params;
-    const product = await Product.findById(productId);
-    if (!product) throw new ApiError(404, "Product not found");
 
+    // Find product by ID
+    const product = await Product.findById(productId);
+    if (!product) throw new ApiError(404, 'Product not found');
+
+    // Validate category if provided
     if (req.body.categoryName) {
         const categoryExists = await Category.findById(req.body.categoryName);
-        if (!categoryExists) throw new ApiError(400, "Category does not exist");
+        if (!categoryExists) throw new ApiError(400, 'Category does not exist');
     }
 
-    let subCategoriesArray;
+    // Sanitize subcategories if provided
     let sanitizedSubCategories;
-    if(req.body.subCategoryName){    
-        subCategoriesArray = Array.isArray(req.body.subCategoryName)
-        ? req.body.subCategoryName
-        : [req.body.subCategoryName];
-    
+    if (req.body.subCategoryName) {
+        const subCategoriesArray = Array.isArray(req.body.subCategoryName)
+            ? req.body.subCategoryName
+            : [req.body.subCategoryName];
+
         sanitizedSubCategories = subCategoriesArray.map((name) =>
-            name.trim().replace(/\s+/g, "_")
+            name.trim().replace(/\s+/g, '_')
         );
     }
 
-
+    // Parse productType if string
     const pt =
-        typeof req.body.productType === "string"
-            ? req.body.productType.split(",").map((t) => t.trim())
+        typeof req.body.productType === 'string'
+            ? req.body.productType.split(',').map((t) => t.trim())
             : req.body.productType;
 
+    // Collect old Cloudinary public IDs for rollback
     const oldPublicIds = [];
 
-    // Capture old image IDs for deletion
-    if (product.productDisplayImage.includes("res.cloudinary.com")) {
-        oldPublicIds.push(extractPublicIdFromUrl(product.productDisplayImage));
+    if (product.productDisplayImage?.includes('res.cloudinary.com')) {
+        const pubId = extractPublicIdFromUrl(product.productDisplayImage);
+        if (pubId) oldPublicIds.push(pubId);
     }
-    for (const url of product.productImages) {
-        if (url.includes("res.cloudinary.com")) {
-            oldPublicIds.push(extractPublicIdFromUrl(url));
+
+    for (const url of product.productImages || []) {
+        if (url.includes('res.cloudinary.com')) {
+            const pubId = extractPublicIdFromUrl(url);
+            if (pubId) oldPublicIds.push(pubId);
         }
     }
 
+    // Arrays to track new uploads for rollback
     const newPublicIds = [];
     let newDisplayImage = product.productDisplayImage;
-    let newProductImages = product.productImages;
+    let newProductImages = [...product.productImages];
 
     try {
         // Upload new display image
@@ -171,7 +178,7 @@ const updateProduct = asyncWrapper(async (req, res) => {
             try {
                 const result = await uploadImage(
                     req.files.productDisplayImage[0],
-                    "product_images"
+                    'product_images'
                 );
                 newDisplayImage = result.secure_url;
                 newPublicIds.push(result.public_id);
@@ -183,33 +190,51 @@ const updateProduct = asyncWrapper(async (req, res) => {
         // Upload new product images
         if (req.files?.productImages) {
             if (req.files.productImages.length > 50) {
-                throw new ApiError(400, "Maximum 50 product images are allowed.");
+                throw new ApiError(400, 'Maximum 50 product images are allowed.');
             }
 
             const uploadedUrls = [];
             for (const file of req.files.productImages) {
                 try {
-                    const result = await uploadImage(file, "product_images");
+                    const result = await uploadImage(file, 'product_images');
                     uploadedUrls.push(result.secure_url);
                     newPublicIds.push(result.public_id);
                 } catch (err) {
                     uploadedUrls.push(saveImageLocally(file));
                 }
             }
+            newProductImages = [...newProductImages, ...uploadedUrls];
+        }
 
-            newProductImages = uploadedUrls;
+        // Handle deleted images (from Cloudinary + DB)
+        const deletedUrls = req.body.deletedProductImages || [];
+        const deletedPublicIds = [];
+
+        if (Array.isArray(deletedUrls)) {
+            // Filter out deleted image URLs from DB
+            newProductImages = newProductImages.filter(
+                (url) => !deletedUrls.includes(url)
+            );
+
+            // Collect Cloudinary public_ids from deleted URLs
+            deletedUrls.forEach((url) => {
+                if (url.includes('res.cloudinary.com')) {
+                    const pubId = extractPublicIdFromUrl(url);
+                    if (pubId) deletedPublicIds.push(pubId);
+                }
+            });
         }
 
         // Update product fields
         product.productName = req.body.productName || product.productName;
         product.categoryName = req.body.categoryName || product.categoryName;
         product.subCategoryName = sanitizedSubCategories || product.subCategoryName;
-        product.productDescription = req.body.productDescription || product.productDescription;
-        product.productDisplayImage = newDisplayImage || product.productDisplayImage;
-        product.productImages = newProductImages || product.productImages;
+        product.productDescription =
+            req.body.productDescription || product.productDescription;
+        product.productDisplayImage = newDisplayImage;
+        product.productImages = newProductImages;
         product.productPrice = req.body.productPrice || product.productPrice;
-        product.productSalePrice =
-            req.body.productSalePrice || product.productSalePrice;
+        product.productSalePrice = req.body.productSalePrice || product.productSalePrice;
         product.stock = req.body.stock || product.stock;
         product.weight = req.body.weight || product.weight;
         product.availability = req.body.availability || product.availability;
@@ -217,7 +242,7 @@ const updateProduct = asyncWrapper(async (req, res) => {
 
         const updatedProduct = await product.save();
 
-        // Delete old images if replaced
+        // Delete old images if new ones uploaded
         if (
             (req.files?.productDisplayImage || req.files?.productImages) &&
             oldPublicIds.length > 0
@@ -225,17 +250,23 @@ const updateProduct = asyncWrapper(async (req, res) => {
             await deleteMultipleImages(oldPublicIds);
         }
 
+        // Delete requested Cloudinary images
+        if (deletedPublicIds.length > 0) {
+            await deleteMultipleImages(deletedPublicIds);
+        }
+
         return res.status(200).json({
-            message: "Product updated successfully",
+            message: 'Product updated successfully',
             product: updatedProduct,
         });
     } catch (err) {
+        // Rollback Cloudinary uploads
         if (newPublicIds.length > 0) {
             await deleteMultipleImages(newPublicIds);
         }
 
-        console.error("Update Product Error:", err.message);
-        throw new ApiError(500, "Failed to update product");
+        console.error('Update Product Error:', err.message);
+        throw new ApiError(500, 'Failed to update product');
     }
 });
 
@@ -277,13 +308,14 @@ const getAllProducts = asyncWrapper(async (req, res) => {
     let filter = {};
 
     const matchingCategories = await Category.find({
-    categoryName: { $regex: searchProduct, $options: "i" }
+        categoryName: { $regex: searchProduct, $options: "i" }
     }).select("_id");
 
     const matchingCategoryIds = matchingCategories.map(cat => cat._id);
 
     if (searchProduct) {
-        filter = { $or: [
+        filter = {
+            $or: [
                 { productName: { $regex: searchProduct, $options: "i" } },
                 { categoryName: { $in: matchingCategoryIds } },
             ]
@@ -294,11 +326,11 @@ const getAllProducts = asyncWrapper(async (req, res) => {
         .skip(skip)
         .limit(limit)
         .sort({ createdAt: -1 })
-        .populate("categoryName", "categoryName"); 
+        .populate("categoryName", "categoryName");
 
-        if(products.length === 0){
-            throw new ApiError(404, "No products found");
-        }
+    if (products.length === 0) {
+        throw new ApiError(404, "No products found");
+    }
 
     return res.status(200).json({
         message: "Products fetched successfully",
@@ -309,15 +341,15 @@ const getAllProducts = asyncWrapper(async (req, res) => {
     });
 });
 
-const getProducts = asyncWrapper(async (req,res)=>{
+const getProducts = asyncWrapper(async (req, res) => {
     const products = await Product.find()
-                                .sort({ createdAt: -1 })
-                                .populate("categoryName", "categoryName");
-    if(products.length === 0){
+        .sort({ createdAt: -1 })
+        .populate("categoryName", "categoryName");
+    if (products.length === 0) {
         throw new ApiError(404, "No products found");
     }
 
-                                return res.status(200).json({
+    return res.status(200).json({
         message: "Products fetched successfully",
         totalProducts: await Product.countDocuments(),
         page,
@@ -329,8 +361,8 @@ const getProducts = asyncWrapper(async (req,res)=>{
 const getProduct = asyncWrapper(async (req, res) => {
     const { productId } = req.params;
 
-    const product = await Product.findById({_id:productId}).populate("categoryName", "categoryName"); ;
-    
+    const product = await Product.findById({ _id: productId }).populate("categoryName", "categoryName");;
+
     if (!product) throw new ApiError(404, "Product not found");
 
     return res.status(200).json({

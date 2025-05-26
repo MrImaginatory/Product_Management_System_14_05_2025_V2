@@ -54,6 +54,7 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
   const {
     control, handleSubmit, setValue, reset, formState: { errors }
   } = useForm({
+    mode: 'onChange',
     resolver: yupResolver(schema),
     defaultValues: {
       productName: '',

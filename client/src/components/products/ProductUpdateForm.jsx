@@ -3,16 +3,18 @@ import React, { useEffect, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, Autocomplete, Stack,
-  FormGroup, FormControlLabel, Checkbox, RadioGroup, Radio, IconButton, CircularProgress
+  FormGroup, FormControlLabel, Checkbox, RadioGroup, Radio,
+  IconButton, CircularProgress, Tooltip
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 import axiosClient from '../../services/axiosClient';
 import CKEditorComponent from '../common/RichTextEditor';
 import ImagePreview from '../common/FileUpload';
 import { useParams } from 'react-router-dom';
 import SubCategoryForm from '../categories/SubCategoryForm';
-import AddIcon from '@mui/icons-material/Add';
-import { useSnackbar } from '../../context/SnackbarContext'
+import { useSnackbar } from '../../context/SnackbarContext';
 
 const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
   const [categories, setCategories] = useState([]);
@@ -23,6 +25,8 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
   const [productImages, setProductImages] = useState([]);
   const [existingDisplayImage, setExistingDisplayImage] = useState(null);
   const [existingProductImages, setExistingProductImages] = useState([]);
+  const [imagesToDelete, setImagesToDelete] = useState([]);
+  const [displayImageToDelete, setDisplayImageToDelete] = useState(null);
   const [openSubForm, setOpenSubForm] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -56,13 +60,14 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
 
       setSelectedCategory({
         _id: initialData.categoryId || '',
-        categoryName: initialData.categoryName.categoryName,
+        categoryName: initialData.categoryName?.categoryName || '',
       });
 
       setSelectedSubcategories(initialData.subCategoryName || []);
-
       setExistingDisplayImage(initialData.productDisplayImage || null);
       setExistingProductImages(initialData.productImages || []);
+      setImagesToDelete([]);
+      setDisplayImageToDelete(null);
     }
   }, [open, initialData]);
 
@@ -103,10 +108,19 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
       if (displayImage) formData.append('productDisplayImage', displayImage);
       productImages.forEach((img) => formData.append('productImages', img));
 
+      // Send deleted image URLs to backend
+      if (displayImageToDelete) {
+        formData.append('deletedDisplayImage', displayImageToDelete);
+      }
+      imagesToDelete.forEach((url) => {
+        formData.append('deletedProductImages', url);
+      });
+
       await axiosClient.patch(`/updateProduct/${productId}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-        showSnackbar('Product updated successfully!', 'success');
+
+      showSnackbar('Product updated successfully!', 'success');
       onSuccess();
       onClose();
     } catch (err) {
@@ -115,6 +129,16 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteExistingImage = (url) => {
+    setExistingProductImages((prev) => prev.filter((img) => img !== url));
+    setImagesToDelete((prev) => [...prev, url]);
+  };
+
+  const handleDeleteDisplayImage = () => {
+    setDisplayImageToDelete(existingDisplayImage);
+    setExistingDisplayImage(null);
   };
 
   return (
@@ -160,15 +184,21 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
             )}
           </Stack>
 
-          {/* Show existing display image */}
           {existingDisplayImage && (
             <div>
-              <label>Existing Display Image:</label> <br/>
-              <img
-                src={existingDisplayImage}
-                alt="Display"
-                style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 8, marginTop: 8 }}
-              />
+              <label>Existing Display Image:</label><br />
+              <Stack direction="row" spacing={1} alignItems="center">
+                <img
+                  src={existingDisplayImage}
+                  alt="Display"
+                  style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 8, marginTop: 8 }}
+                />
+                <Tooltip title="Delete Image">
+                  <IconButton onClick={handleDeleteDisplayImage} color="error">
+                    <DeleteIcon />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
             </div>
           )}
 
@@ -178,18 +208,27 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
             onFileChange={setDisplayImage}
           />
 
-          {/* Show existing product images */}
           {existingProductImages.length > 0 && (
             <div>
-              <label>Existing Additional Images:</label><br/>
+              <label>Existing Additional Images:</label>
               <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
                 {existingProductImages.map((imgUrl, idx) => (
-                  <img
-                    key={idx}
-                    src={imgUrl}
-                    alt={`Additional ${idx}`}
-                    style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 8 }}
-                  />
+                  <div key={idx} style={{ position: 'relative' }}>
+                    <img
+                      src={imgUrl}
+                      alt={`Additional ${idx}`}
+                      style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 8 }}
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDeleteExistingImage(imgUrl)}
+                      style={{
+                        position: 'absolute', top: -10, right: -10, background: 'white'
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </div>
                 ))}
               </Stack>
             </div>
@@ -296,7 +335,6 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
           try {
             const res = await axiosClient.get('/categories');
             setCategories(res.data.categories);
-
             const updatedCategory = res.data.categories.find(cat => cat._id === selectedCategory._id);
             setSubcategories(updatedCategory?.subCategoriesName || []);
             setSelectedCategory(updatedCategory);
