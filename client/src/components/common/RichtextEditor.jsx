@@ -16,3 +16,4 @@ const CKEditorComponent = ({ label, value, onChange, error }) => (
 );
 
 export default CKEditorComponent;
+//test
