@@ -4,6 +4,8 @@ import categoryRouter from './routes/category.route.js';
 import ApiError from './utils/apiError.utils.js';
 import errorHandler from './middlewares/errorHandler.middleware.js';
 import productRouter from './routes/product.route.js';
+import authRouter from './routes/auth.route.js';
+import userRouter from './routes/user.route.js';
 
 const app = express();
 app.use(cors())
@@ -11,8 +13,10 @@ app.use(cors())
 app.use(express.json());
 app.use(urlencoded({ extended: true }));
 
-app.use('/api/v2',categoryRouter)
-app.use('/api/v2',productRouter)
+app.use('/api/v2/category',categoryRouter)
+app.use('/api/v2/product',productRouter)
+app.use('/api/v2/auth',authRouter)
+app.use('/api/v2/user',userRouter)
 
 // utils/ApiError.js
 app.use((req, res, next) => {

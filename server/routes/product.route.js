@@ -1,8 +1,11 @@
 import { Router } from "express";
 import { createProduct,updateProduct,deleteProduct, getAllProducts,getProduct, getProducts } from "../controllers/product.controller.js";
 import { uploadProductImages } from "../middlewares/multer.middleware.js";
+import checkToken from "../middlewares/token.middleware.js";
 
 const productRouter = Router();
+
+productRouter.use(checkToken);
 
 productRouter.route('/createProduct').post(uploadProductImages,createProduct);
 productRouter.route('/updateProduct/:productId').patch(uploadProductImages,updateProduct);

@@ -13,7 +13,6 @@ const categorySchema = new mongoose.Schema({
         required: [true, "Please Provide Slug"],
         minLength: 3,
         trim: true,
-        lowercase: true,
     },
     categoryDescription: {
         type: String,

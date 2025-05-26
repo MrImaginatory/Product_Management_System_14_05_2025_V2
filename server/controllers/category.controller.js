@@ -3,7 +3,6 @@ import Category from "../models/category.model.js"
 import Product from "../models/product.model.js";
 import asyncWrapper from "../utils/asyncWrapper.utils.js";
 import { uploadImage, deleteImage, extractPublicIdFromUrl, saveImageLocally } from '../services/cloudinary.service.js';
-
 import cloudinary from "../constants/cloudinary.constant.js";
 import ApiError from "../utils/apiError.utils.js";
 import generateSlug from "../utils/slug.utils.js";
@@ -24,7 +23,7 @@ const createCategory = asyncWrapper(async (req, res) => {
     throw new ApiError(400, "Category image size should be less than 500KB");
   }
 
-  let slug = generateSlug(req.body.slug);
+  let slug = generateSlug(req.body.slug || req.body.categoryName || category.slug);
   let category;
   let cloudinaryResult;
   let imageUrl = "";
@@ -80,16 +79,13 @@ const updateCategory = asyncWrapper(async (req, res) => {
   if (!category) {
     throw new ApiError(404, "Category not found");
   }
-  let slug = generateSlug(req.body.slug);
-  req.body.slug = slug;
-  const updatedFields = { ...req.body };
+  let slug =  generateSlug(req.body.slug || req.body.categoryName || category.slug);
   let newImageUrl = category.categoryImage;
   let newCloudinaryId = category.cloudinaryId;
   let newUploadResult = null;
 
   try {
     if (req.file) {
-      // Step 1: Upload new image
       try {
         newUploadResult = await uploadImage(req.file, "category_images");
         newImageUrl = newUploadResult.secure_url;
@@ -101,13 +97,17 @@ const updateCategory = asyncWrapper(async (req, res) => {
       }
     }
 
+    
+
     // Step 2: Update DB
     const updatedCategory = await Category.findByIdAndUpdate(
       categoryId,
       {
-        ...updatedFields,
-        categoryImage: newImageUrl,
-        cloudinaryId: newCloudinaryId,
+        categoryName: req.body.categoryName|| category.categoryName,
+        categoryDescription: req.body.categoryDescription || category.categoryDescription,
+        slug: slug || category.slug,
+        categoryImage: newImageUrl || category.categoryImage,
+        cloudinaryId: newCloudinaryId || category.cloudinaryId,
       },
       { new: true }
     );
@@ -180,34 +180,47 @@ const deleteCategory = asyncWrapper(async (req, res) => {
 const createSubCategory = asyncWrapper(async (req, res) => {
   const categoryId = req.params.categoryId;
 
-  const categoryExists = await Category.findById(categoryId);
-  if (!categoryExists) {
+  const category = await Category.findById(categoryId);
+  if (!category) {
     return res.status(404).json({ message: "Category not found" });
   }
 
-  if (categoryExists.subCategoriesName.includes(req.body.subCategoriesName)) {
-    return res.status(400).json({ message: "Subcategory already exists" });
-  }
-
+  // Normalize input into an array
   const subCategoriesArray = Array.isArray(req.body.subCategoriesName)
     ? req.body.subCategoriesName
     : [req.body.subCategoriesName];
 
-  const sanitizedSubCategories = subCategoriesArray.map((name) =>
-    name.trim().replace(/\s+/g, "_")
+  // Sanitize the input
+  const sanitizedSubCategories = subCategoriesArray.map((name) => name.trim());
+
+  // Check for duplicates
+  const existingSubcategories = category.subCategoriesName.map((name) =>
+    name.toLowerCase()
   );
 
-  const createdSubCategory = await Category.findByIdAndUpdate(
+  const duplicates = sanitizedSubCategories.filter((name) =>
+    existingSubcategories.includes(name.toLowerCase())
+  );
+
+  if (duplicates.length > 0) {
+    return res.status(400).json({
+      message: `Subcategory '${duplicates.join(", ")}' already exists`,
+    });
+  }
+
+  // Add new subcategories
+  const updatedCategory = await Category.findByIdAndUpdate(
     categoryId,
-    { $push: { subCategoriesName: sanitizedSubCategories } },
+    { $push: { subCategoriesName: { $each: sanitizedSubCategories } } },
     { new: true }
   );
 
   return res.status(200).json({
-    message: `Updated ${createdSubCategory.categoryName} Successfully`,
-    category: createdSubCategory,
+    message: `Updated ${updatedCategory.categoryName} successfully`,
+    category: updatedCategory,
   });
 });
+
 
 const updateSubCategory = asyncWrapper(async (req, res) => {
   const { categoryId } = req.params;
@@ -218,7 +231,7 @@ const updateSubCategory = asyncWrapper(async (req, res) => {
     return res.status(404).json({ message: "Category not found" });
   }
 
-  const sanitizedNewSubCategoryName = newSubCategoryName.replace(/\s+/g, "_");
+  const sanitizedNewSubCategoryName = newSubCategoryName.trim();
 
   const subCategoryIndex = categoryExists.subCategoriesName.indexOf(oldSubCategoryName);
   if (subCategoryIndex === "-1") {
@@ -238,26 +251,45 @@ const updateSubCategory = asyncWrapper(async (req, res) => {
 
 const deleteSubCategory = asyncWrapper(async (req, res) => {
   const categoryId = req.params.categoryId;
-  const subCategoriesName = req.body.subCategoriesName;
 
-  const categoryExists = await Category.findById(categoryId);
-  if (!categoryExists) {
+  // Normalize the input into an array
+  const subCategoriesToDelete = Array.isArray(req.body.subCategoriesName)
+    ? req.body.subCategoriesName
+    : [req.body.subCategoriesName];
+
+  const category = await Category.findById(categoryId);
+  if (!category) {
     return res.status(404).json({ message: "Category not found" });
   }
-  const subCategoryIndex =
-    categoryExists.subCategoriesName.indexOf(subCategoriesName);
-  if (subCategoryIndex === "-1") {
-    return res
-      .status(400)
-      .json({ message: "Subcategory name does not match existing data" });
+
+  // Sanitize input and convert to lowercase for case-insensitive match
+  const sanitizedToDelete = subCategoriesToDelete.map((name) =>
+    name.trim().toLowerCase()
+  );
+
+  const originalSubCategories = category.subCategoriesName;
+
+  // Filter out the subcategories that should be kept
+  const filteredSubCategories = originalSubCategories.filter(
+    (existing) => !sanitizedToDelete.includes(existing.trim().toLowerCase())
+  );
+
+  if (filteredSubCategories.length === originalSubCategories.length) {
+    return res.status(400).json({
+      message: "No matching subcategories found to delete",
+    });
   }
-  categoryExists.subCategoriesName.splice(subCategoryIndex, 1);
-  const updatedCategory = await categoryExists.save();
+
+  // Update the category
+  category.subCategoriesName = filteredSubCategories;
+  const updatedCategory = await category.save();
+
   return res.status(200).json({
-    message: `Deleted ${subCategoriesName} Successfully`,
+    message: `Deleted ${sanitizedToDelete.join(", ")} successfully`,
     category: updatedCategory,
   });
 });
+
 
 const getCategories = asyncWrapper(async (req, res) => {
   const page = parseInt(req.query.page) || 1;

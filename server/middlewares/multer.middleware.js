@@ -26,6 +26,8 @@ const upload = multer({
 
 export const uploadCategoryImage = upload.single('categoryImage');
 
+export const uploadProfileImage = upload.single('profileImage');
+
 export const uploadProductImages = upload.fields([
     { name: 'productDisplayImage', maxCount: 1 },
     { name: 'productImages', maxCount: 50 }

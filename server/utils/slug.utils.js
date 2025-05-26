@@ -1,10 +1,10 @@
-const generateSlug = (text) => {
-        return text
-            .toLowerCase()
-            .trim()
-            .replace(/[^\w\s-]/g, '') // remove special characters
-            .replace(/\s+/g, '-')     // replace spaces with -
-            .replace(/-+/g, '-');     // collapse multiple hyphens
-    };
+const generateSlug = (input) => {
+    if (!input || typeof input !== "string") return "";
+    return input
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, "") // Remove special chars
+        .replace(/\s+/g, "-");     // Replace spaces with hyphens
+};
 
 export default generateSlug;

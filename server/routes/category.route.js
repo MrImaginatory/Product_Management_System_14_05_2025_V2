@@ -10,6 +10,9 @@ import {createCategory,
         getSubCategories} from '../controllers/category.controller.js'
 import { uploadCategoryImage } from '../middlewares/multer.middleware.js';
 const categoryRouter = Router();
+import checkToken from "../middlewares/token.middleware.js";
+
+categoryRouter.use(checkToken);
 
 categoryRouter.route('/categories').get(getCategories);
 categoryRouter.route('/subCategories').get(getSubCategories);
