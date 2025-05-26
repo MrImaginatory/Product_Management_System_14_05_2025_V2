@@ -72,7 +72,7 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
 
   const fetchCategories = async () => {
     try {
-      const res = await axiosClient.get('/subCategories');
+      const res = await axiosClient.get('/category/subCategories');
       setCategories(res.data.categories);
     } catch (err) {
       console.error('Error loading categories:', err.message);
@@ -127,7 +127,7 @@ const ProductForm = ({ open, onClose, onSuccess }) => {
       if (displayImage) formData.append('productDisplayImage', displayImage);
       productImages.forEach(img => formData.append('productImages', img));
 
-      await axiosClient.post('/createProduct', formData, {
+      await axiosClient.post('/product/createProduct', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 

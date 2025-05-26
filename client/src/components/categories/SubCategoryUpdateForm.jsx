@@ -15,7 +15,7 @@ const SubCategoryUpdateForm = ({ open, onClose, onSuccess, categoryId, subCatego
 
   const handleSubmit = async () => {
     try {
-      await axiosClient.patch(`/updateSubCategory/${categoryId}`, {
+      await axiosClient.patch(`/category/updateSubCategory/${categoryId}`, {
         oldSubCategoryName: oldSub,
         newSubCategoryName: newSub,
       });
@@ -30,11 +30,12 @@ const SubCategoryUpdateForm = ({ open, onClose, onSuccess, categoryId, subCatego
 
   const handleDelete = async () => {
     try {
-      await axiosClient.delete(`/deleteSubCategory/${categoryId}`, {
+      await axiosClient.delete(`/category/deleteSubCategory/${categoryId}`, {
         data: { oldSubCategoryName: oldSub },
       });
       showSnackbar('Subcategory deleted successfully!', 'success');
       onSuccess();
+      setOldSub('')
       setConfirmDeleteOpen(false);
       onClose();
     } catch (err) {

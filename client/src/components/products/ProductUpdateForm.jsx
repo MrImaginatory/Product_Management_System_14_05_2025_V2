@@ -116,7 +116,7 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
         formData.append('deletedProductImages', url);
       });
 
-      await axiosClient.patch(`/updateProduct/${productId}`, formData, {
+      await axiosClient.patch(`/product/updateProduct/${productId}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 

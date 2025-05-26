@@ -33,6 +33,7 @@ const login = asyncWrapper(async (req, res) => {
     const token = generateToken(user);
     
     res.cookie('token', token, { httpOnly: true, secure: true });
+    res.setHeader('Authorization', `Bearer ${token}`);
     return res.status(200).json({ message: 'Login successful', user, token });
 });
 
@@ -55,25 +56,23 @@ const register = asyncWrapper(async (req, res) => {
 
     const token = generateToken(newUser);
 
-    const { subject, html } = generateVerificationEmail(token);
+    // const { subject, html } = generateVerificationEmail(token);
 
-    const info = await transporter.sendMail({
-        from: process.env.NODEMAIL_SENDER,
-        to: email,
-        subject,
-        html
-    });
+    // const info = await transporter.sendMail({
+    //     from: process.env.NODEMAIL_SENDER,
+    //     to: email,
+    //     subject,
+    //     html
+    // });
 
-    if (!info.accepted.length === 0) {
-        console.error("Error sending email");
-        return res.status(400).json({ message: "Sending email failed", info: info });
-    }
+    // if (!info.accepted.length === 0) {
+    //     console.error("Error sending email");
+    //     return res.status(400).json({ message: "Sending email failed", info: info });
+    // }
 
-    console.log(token);
-    
+    // console.log(token);
 
-    res.cookie('token', token, { httpOnly: true, secure: true });
-    return res.status(201).json({ message: 'Registration successful', newUser,mail:info, token });
+    return res.status(201).json({ message: 'Registration successful', token: token });
 
 });
 

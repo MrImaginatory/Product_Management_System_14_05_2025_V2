@@ -41,7 +41,7 @@ const CategoryPage = () => {
         async (searchValue = searchTerm, pageValue = page) => {
             try {
                 setLoading(true);
-                const res = await axiosClient.get('/categories', {
+                const res = await axiosClient.get('/category/categories', {
                     params: {
                         search: searchValue,
                         page: pageValue,

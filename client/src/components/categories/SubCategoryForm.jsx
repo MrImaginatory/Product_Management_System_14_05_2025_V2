@@ -40,7 +40,7 @@ const SubCategoryForm = ({
 
   const fetchCategories = async () => {
     try {
-      const res = await axiosClient.get('/subCategories');
+      const res = await axiosClient.get('/category/subCategories');
       setCategories(res.data.categories);
     } catch (err) {
       console.error('Failed to load categories');
@@ -60,13 +60,13 @@ const SubCategoryForm = ({
     try {
       if (mode === 'create') {
         if (!selectedCategory || newSubs.length === 0) return;
-        await axiosClient.patch(`/createSubCategory/${selectedCategory._id}`, {
+        await axiosClient.patch(`/category/createSubCategory/${selectedCategory._id}`, {
           subCategoriesName: newSubs,
         });
         showSnackbar('Subcategories added successfully!', 'success');
       } else {
         if (!oldSub.trim() || !newSubInput.trim()) return;
-        await axiosClient.patch(`/updateSubCategory/${categoryId}`, {
+        await axiosClient.patch(`/category/updateSubCategory/${categoryId}`, {
           oldSubCategoryName: oldSub,
           newSubCategoryName: newSubInput.trim(),
         });

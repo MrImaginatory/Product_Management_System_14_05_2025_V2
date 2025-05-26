@@ -21,7 +21,7 @@ const ProductDetails = () => {
 
   const fetchProduct = async () => {
     try {
-      const res = await axiosClient.get(`/getProduct/${productId}`);
+      const res = await axiosClient.get(`/product/getProduct/${productId}`);
       setProduct(res.data.product);
     } catch (err) {
       console.error('Error fetching product:', err.message);
@@ -31,7 +31,7 @@ const ProductDetails = () => {
 
   const handleDelete = async () => {
     try {
-      await axiosClient.delete(`/deleteProduct/${productId}`);
+      await axiosClient.delete(`/product/deleteProduct/${productId}`);
       showSnackbar('Product Deleted successfully!', 'success');
       navigate('/products');
     } catch (err) {

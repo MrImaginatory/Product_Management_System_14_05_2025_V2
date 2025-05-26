@@ -252,10 +252,13 @@ const updateSubCategory = asyncWrapper(async (req, res) => {
 const deleteSubCategory = asyncWrapper(async (req, res) => {
   const categoryId = req.params.categoryId;
 
+  console.log(req.body);
+  
+
   // Normalize the input into an array
-  const subCategoriesToDelete = Array.isArray(req.body.subCategoriesName)
-    ? req.body.subCategoriesName
-    : [req.body.subCategoriesName];
+  const subCategoriesToDelete = Array.isArray(req.body.oldSubCategoryName)
+    ? req.body.oldSubCategoryName
+    : [req.body.oldSubCategoryName];
 
   const category = await Category.findById(categoryId);
   if (!category) {
@@ -289,7 +292,6 @@ const deleteSubCategory = asyncWrapper(async (req, res) => {
     category: updatedCategory,
   });
 });
-
 
 const getCategories = asyncWrapper(async (req, res) => {
   const page = parseInt(req.query.page) || 1;

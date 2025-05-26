@@ -33,7 +33,7 @@ const CategoryDetails = () => {
     const fetchCategory = async () => {
         try {
             setLoading(true);
-            const res = await axiosClient.get(`/category/${categoryId}`);
+            const res = await axiosClient.get(`/category/category/${categoryId}`);
             setCategory(res.data.category);
         } catch (err) {
             console.error('Error loading category:', err.message);
@@ -49,7 +49,7 @@ const CategoryDetails = () => {
 
     const handleDelete = async () => {
         try {
-            await axiosClient.delete(`/deleteCategory/${categoryId}`);
+            await axiosClient.delete(`/category/deleteCategory/${categoryId}`);
             showSnackbar('Category Deleted successfully!', 'success');
             navigate('/categories');
         } catch (err) {

@@ -37,7 +37,7 @@ const ProductPage = () => {
         async (searchValue = searchProduct, pageValue = page) => {
             try {
                 setLoading(true);
-                const res = await axiosClient.get('/getProducts', {
+                const res = await axiosClient.get('/product/getProducts', {
                     params: {
                         searchProduct: searchValue,
                         page: pageValue,
