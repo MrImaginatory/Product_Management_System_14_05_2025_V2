@@ -6,12 +6,16 @@ import errorHandler from './middlewares/errorHandler.middleware.js';
 import productRouter from './routes/product.route.js';
 import authRouter from './routes/auth.route.js';
 import userRouter from './routes/user.route.js';
+import dotenv from 'dotenv/config';
 
 const app = express();
 app.use(cors({    
     origin: process.env.CORS_ORIGIN || '*',
     credentials: true,
 }));
+
+console.log(process.env);
+
 
 app.use(express.json());
 app.use(urlencoded({ extended: true }));
