@@ -3,6 +3,10 @@ import jwt from 'jsonwebtoken';
 const checkToken = (req, res, next) => {
     let token;
 
+    if(!req.headers.authorization){
+        return res.status(401).json({ message: 'Unauthorized! Token missing.' });
+    }
+
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         token = req.headers.authorization.split(' ')[1];
     }
