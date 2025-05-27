@@ -16,7 +16,7 @@ export const SnackbarProvider = ({ children }) => {
     setSnackbar({ open: true, message, severity });
   }, []);
 
-  const handleClose = (_, reason) => {
+  const handleClose = (event, reason) => {
     if (reason === 'clickaway') return;
     setSnackbar((prev) => ({ ...prev, open: false }));
   };
@@ -34,6 +34,8 @@ export const SnackbarProvider = ({ children }) => {
           onClose={handleClose}
           severity={snackbar.severity}
           sx={{ width: '100%' }}
+          elevation={6}
+          variant="filled"
         >
           {snackbar.message}
         </Alert>

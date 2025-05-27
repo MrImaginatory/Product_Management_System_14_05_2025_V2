@@ -1,171 +1,185 @@
 import React, { useState } from 'react';
 import {
-    Box, Button, TextField, Typography, Alert, CircularProgress
+    Box, Button, TextField, Typography, Alert, CircularProgress, Paper, Divider, useMediaQuery
 } from '@mui/material';
-import {Link} from 'react-router-dom';
-import { Formik, Form } from 'formik';
-import * as Yup from 'yup';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
 const SignupPage = () => {
-    const [message, setMessage] = useState({ type: '', text: '' });
+    const navigate = useNavigate();
+    const { login } = useAuth();
+    const isMobile = useMediaQuery('(max-width:768px)');
 
-    const initialValues = {
+    const [formData, setFormData] = useState({
         username: '',
         email: '',
         password: '',
         confirmPassword: ''
-    };
-
-    const validationSchema = Yup.object({
-        username: Yup.string().min(3).required('Username is required'),
-        email: Yup.string().email('Invalid email address').required('Email is required'),
-        password: Yup.string().min(6, 'Minimum 6 characters').required('Password is required'),
-        confirmPassword: Yup.string()
-            .oneOf([Yup.ref('password'), null], 'Passwords must match')
-            .required('Confirm your password')
     });
 
-    const handleSubmit = async (values, { resetForm, setSubmitting }) => {
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState({ type: '', text: '' });
+
+    const handleChange = (e) => {
+        setFormData(prev => ({
+            ...prev,
+            [e.target.name]: e.target.value
+        }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
         setMessage({ type: '', text: '' });
 
+        if (formData.password !== formData.confirmPassword) {
+            setMessage({ type: 'error', text: 'Passwords do not match.' });
+            setLoading(false);
+            return;
+        }
+
         try {
-            const res = await axios.post(
-                'http://localhost:3001/api/v2/auth/register',
-                {
-                    username: values.username,
-                    email: values.email,
-                    password: values.password
-                }
-            );
-            setMessage({ type: 'success', text: 'Signup successful. You can now login.' });
+            const res = await axios.post('http://localhost:3001/api/v2/auth/signup', formData, {
+                withCredentials: true
+            });
+
+            const { user, token } = res.data;
+            login(user, token);
+            setMessage({ type: 'success', text: 'Signup successful. Redirecting...' });
+
             setTimeout(() => {
-                window.location.href = '/login';
-            }, 1000); // Redirect after 1 second
-            resetForm();
+                navigate('/dashboard');
+            }, 1000);
         } catch (error) {
             setMessage({
                 type: 'error',
-                text: error.response?.data?.message || 'Signup failed. Please try again.'
+                text: error.response?.data?.message || 'Signup failed. Please try again.',
             });
         } finally {
-            setSubmitting(false);
+            setLoading(false);
         }
     };
 
     return (
         <Box
             sx={{
-                width: 400,
-                mx: 'auto',
-                mt: 8,
-                p: 4,
-                boxShadow: 3,
-                borderRadius: 2,
-                bgcolor: '#fff'
+                minHeight: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'linear-gradient(to right, #f0f2f5, #dfe9f3)',
+                px: 2
             }}
         >
-            <Typography variant="h5" textAlign="center" gutterBottom>
-                Create Your Account
-            </Typography>
-
-            <Formik
-                initialValues={initialValues}
-                validationSchema={validationSchema}
-                onSubmit={handleSubmit}
+            <Paper
+                elevation={8}
+                sx={{
+                    display: 'flex',
+                    flexDirection: isMobile ? 'column' : 'row',
+                    width: isMobile ? '100%' : '950px',
+                    overflow: 'hidden',
+                    borderRadius: 4
+                }}
             >
-                {({
-                    values, errors, touched, handleChange, handleBlur, isSubmitting
-                }) => (
-                    <Form>
-                        <TextField
-                            label="Username"
-                            name="username"
-                            value={values.username}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            fullWidth
-                            required
-                            margin="normal"
-                            error={touched.username && Boolean(errors.username)}
-                            helperText={touched.username && errors.username}
-                            placeholder="Choose a unique username"
-                        />
+                {/* Left Image */}
+                <Box
+                    sx={{
+                        flex: 1,
+                        backgroundImage: 'url(/signup.jpg)',
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        minHeight: 400
+                    }}
+                />
 
-                        <TextField
-                            label="Email"
-                            name="email"
-                            type="email"
-                            value={values.email}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            fullWidth
-                            required
-                            margin="normal"
-                            error={touched.email && Boolean(errors.email)}
-                            helperText={touched.email && errors.email}
-                            placeholder="Enter your email"
-                        />
+                {/* Right Form */}
+                <Box
+                    component="form"
+                    onSubmit={handleSubmit}
+                    sx={{
+                        flex: 1,
+                        p: 5,
+                        backgroundColor: '#fff',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center'
+                    }}
+                >
+                    <Typography variant="h5" fontWeight={600} textAlign="center" gutterBottom>
+                        Create Account
+                    </Typography>
+                    <Typography variant="body2" textAlign="center" color="text.secondary" mb={3}>
+                        Join us and start building!
+                    </Typography>
 
-                        <TextField
-                            label="Password"
-                            name="password"
-                            type="password"
-                            value={values.password}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            fullWidth
-                            required
-                            margin="normal"
-                            error={touched.password && Boolean(errors.password)}
-                            helperText={touched.password && errors.password}
-                            placeholder="Create a strong password"
-                        />
+                    <TextField
+                        label="Username"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleChange}
+                        fullWidth
+                        required
+                        margin="normal"
+                    />
+                    <TextField
+                        label="Email"
+                        name="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        fullWidth
+                        required
+                        margin="normal"
+                    />
+                    <TextField
+                        label="Password"
+                        name="password"
+                        type="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        fullWidth
+                        required
+                        margin="normal"
+                    />
+                    <TextField
+                        label="Confirm Password"
+                        name="confirmPassword"
+                        type="password"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        fullWidth
+                        required
+                        margin="normal"
+                    />
 
-                        <TextField
-                            label="Confirm Password"
-                            name="confirmPassword"
-                            type="password"
-                            value={values.confirmPassword}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            fullWidth
-                            required
-                            margin="normal"
-                            error={touched.confirmPassword && Boolean(errors.confirmPassword)}
-                            helperText={touched.confirmPassword && errors.confirmPassword}
-                            placeholder="Re-enter your password"
-                        />
+                    {message.text && (
+                        <Alert sx={{ mt: 2 }} severity={message.type}>
+                            {message.text}
+                        </Alert>
+                    )}
 
-                        <Box mt={2}>
-                            <Button
-                                type="submit"
-                                variant="contained"
-                                color="primary"
-                                fullWidth
-                                disabled={isSubmitting}
-                            >
-                                {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Sign Up'}
-                            </Button>
-                        </Box>
+                    <Button
+                        type="submit"
+                        variant="contained"
+                        color="primary"
+                        fullWidth
+                        sx={{ mt: 3, py: 1.3, fontWeight: 600 }}
+                        disabled={loading}
+                    >
+                        {loading ? <CircularProgress size={24} color="inherit" /> : 'Sign Up'}
+                    </Button>
 
-                        {message.text && (
-                            <Box mt={2}>
-                                <Alert severity={message.type}>{message.text}</Alert>
-                            </Box>
-                        )}
-                    </Form>
-                )}
-            </Formik>
+                    <Divider sx={{ my: 3 }} />
 
-            <Box mt={3} textAlign="center">
-                <Typography variant="body2">
-                    Already have an account?{' '}
-                    <Link to="/login" underline="hover">
-                        Login
-                    </Link>
-                </Typography>
-            </Box>
+                    <Typography variant="body2" textAlign="center">
+                        Already have an account?{' '}
+                        <Link to="/login" style={{ textDecoration: 'none', color: '#1976d2', fontWeight: 500 }}>
+                            Login
+                        </Link>
+                    </Typography>
+                </Box>
+            </Paper>
         </Box>
     );
 };

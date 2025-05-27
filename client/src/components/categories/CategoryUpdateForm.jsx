@@ -18,14 +18,13 @@ const generateSlug = (text) => {
     .replace(/-+/g, '-');
 };
 
-const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
+const CategoryUpdateForm = ({ open, onClose, initialData = {}, onSuccess }) => {
   const [categoryName, setCategoryName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isSlugEditedManually, setIsSlugEditedManually] = useState(false);
-
   const [errors, setErrors] = useState({});
   const { showSnackbar } = useSnackbar();
 
@@ -40,11 +39,9 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
     }
   }, [open, initialData]);
 
-  // 🧠 Auto-generate slug only if user hasn't manually edited it
   useEffect(() => {
     if (!isSlugEditedManually) {
-      const newSlug = generateSlug(categoryName);
-      setSlug(newSlug);
+      setSlug(generateSlug(categoryName));
     }
   }, [categoryName, isSlugEditedManually]);
 
@@ -71,7 +68,7 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
       await axiosClient.patch(`/category/updateCategory/${initialData._id}`, formData);
       onSuccess();
       showSnackbar('Category updated successfully!', 'success');
-      onClose();
+      handleClose();
     } catch (err) {
       console.error('Error updating category:', err.message);
       showSnackbar(err?.response?.data?.message || 'Error updating data', 'error');
@@ -80,11 +77,28 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
     }
   };
 
+  const handleClose = () => {
+    setCategoryName('');
+    setSlug('');
+    setDescription('');
+    setImage(null);
+    setErrors({});
+    setIsSlugEditedManually(false);
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog
+      open={open}
+      onClose={(event, reason) => {
+        if (reason !== 'backdropClick') handleClose();
+      }}
+      maxWidth="sm"
+      fullWidth
+    >
       <DialogTitle>
         Update Category
-        <IconButton onClick={onClose} sx={{ position: 'absolute', right: 8, top: 8 }}>
+        <IconButton onClick={handleClose} sx={{ position: 'absolute', right: 8, top: 8 }}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -94,34 +108,47 @@ const CategoryUpdateForm = ({ open, onClose, initialData, onSuccess }) => {
             label="Category Name"
             fullWidth
             value={categoryName}
-            onChange={(e) => {
-              setCategoryName(e.target.value);
-            }}
+            onChange={(e) => setCategoryName(e.target.value)}
             error={!!errors.categoryName}
             helperText={errors.categoryName}
           />
+
           <TextField
-            label="Slug"
+            label="Slug (auto-generated but editable)"
             fullWidth
             value={slug}
             onChange={(e) => {
               setSlug(e.target.value);
-              setIsSlugEditedManually(true); // Track manual edits
+              setIsSlugEditedManually(true);
             }}
             error={!!errors.slug}
             helperText={errors.slug}
           />
+
           <CKEditorComponent
             label="Description"
             value={description}
             onChange={setDescription}
             error={!!errors.description}
           />
+          {errors.description && (
+            <div style={{ color: 'red', fontSize: 12 }}>{errors.description}</div>
+          )}
+
+          {/* Show current image preview if no new image uploaded */}
+          {!image && initialData?.categoryImage && (
+            <img
+              src={initialData.categoryImage}
+              alt="Current"
+              style={{ width: 120, height: 'auto', borderRadius: 8 }}
+            />
+          )}
+
           <ImagePreview file={image} onFileChange={setImage} label="Change Image (optional)" />
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleClose}>Cancel</Button>
         <Button
           variant="contained"
           onClick={handleSubmit}

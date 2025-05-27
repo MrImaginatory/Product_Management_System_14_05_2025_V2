@@ -5,19 +5,19 @@ import {
     Button,
     Container,
     Typography,
-    Table,
-    TableHead,
-    TableRow,
-    TableCell,
-    TableBody,
     TextField,
     Stack,
     CircularProgress,
     InputAdornment,
     IconButton,
+    Card,
+    CardMedia,
+    CardContent,
+    Chip,
 } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import debounce from 'lodash/debounce';
+import Masonry from '@mui/lab/Masonry';
 
 import axiosClient from '../services/axiosClient';
 import CategoryForm from '../components/categories/CategoryForm';
@@ -36,17 +36,12 @@ const CategoryPage = () => {
 
     const { showSnackbar } = useSnackbar();
 
-    // fetchCategories is wrapped in useCallback to keep stable reference for debounce
     const fetchCategories = useCallback(
         async (searchValue = searchTerm, pageValue = page) => {
             try {
                 setLoading(true);
                 const res = await axiosClient.get('/category/categories', {
-                    params: {
-                        search: searchValue,
-                        page: pageValue,
-                        limit: 10,
-                    },
+                    params: { search: searchValue, page: pageValue, limit: 12 },
                 });
                 setCategories(res.data.categories);
                 setTotalPages(Math.ceil(res.data.matchingCount / res.data.limit));
@@ -60,32 +55,27 @@ const CategoryPage = () => {
         [searchTerm, page, showSnackbar]
     );
 
-    // Debounced fetch for search input (1 second)
     const debouncedFetch = useMemo(
         () =>
             debounce((searchValue) => {
                 setPage(1);
                 fetchCategories(searchValue, 1);
-            }, 1000),
+            }, 800),
         [fetchCategories]
     );
 
-    // Effect to fetch categories on page change (except when page is reset by search)
     useEffect(() => {
         fetchCategories(searchTerm, page);
     }, [page, fetchCategories, searchTerm]);
 
-    // Clean up debounce on unmount
     useEffect(() => {
-        return () => {
-            debouncedFetch.cancel();
-        };
+        return () => debouncedFetch.cancel();
     }, [debouncedFetch]);
 
     const handleClearSearch = () => {
         setSearchTerm('');
         setPage(1);
-        fetchCategories('', 1); // fetch all categories on clear
+        fetchCategories('', 1);
     };
 
     const handleSearchInputChange = (e) => {
@@ -109,7 +99,7 @@ const CategoryPage = () => {
                     </Stack>
                 </Stack>
 
-                <Stack direction="row" spacing={2} mb={2}>
+                <Stack direction="row" spacing={2} mb={3}>
                     <TextField
                         label="Search Categories or Subcategories"
                         variant="outlined"
@@ -118,7 +108,6 @@ const CategoryPage = () => {
                         onChange={handleSearchInputChange}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                                // immediate search on enter without debounce
                                 debouncedFetch.cancel();
                                 setPage(1);
                                 fetchCategories(searchTerm, 1);
@@ -133,6 +122,7 @@ const CategoryPage = () => {
                                 </InputAdornment>
                             ) : null,
                         }}
+                        sx={{ flexGrow: 1 }}
                     />
                     <Button
                         variant="outlined"
@@ -147,80 +137,88 @@ const CategoryPage = () => {
                 </Stack>
 
                 {loading ? (
-                    <CircularProgress />
-                ) : (
-                    <Box>
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>S.No</TableCell>
-                                    <TableCell>Category Name</TableCell>
-                                    <TableCell>Slug</TableCell>
-                                    <TableCell>Subcategories</TableCell>
-                                    <TableCell>Description</TableCell>
-                                    <TableCell>Image</TableCell>
-                                    <TableCell>Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {categories.map((cat, index) => (
-                                    <TableRow key={cat._id}>
-                                        <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                                        <TableCell>{cat.categoryName}</TableCell>
-                                        <TableCell>{cat.slug}</TableCell>
-                                        <TableCell>{cat.subCategoriesName?.map((sub) => sub.replace(/_/g, ' ')).join(', ')}</TableCell>
-                                        <TableCell>
-                                            {cat.categoryDescription.length > 100 ? (
-                                                <>
-                                                    <span
-                                                        dangerouslySetInnerHTML={{
-                                                            __html: DOMPurify.sanitize(cat.categoryDescription.slice(0, 100)) + '...',
-                                                        }}
-                                                    />
-                                                    <Button
-                                                        size="small"
-                                                        variant="text"
-                                                        onClick={() => (window.location.href = `/category/${cat._id}`)}
-                                                    >
-                                                        Read More
-                                                    </Button>
-                                                </>
-                                            ) : (
-                                                <span
-                                                    dangerouslySetInnerHTML={{
-                                                        __html: DOMPurify.sanitize(cat.categoryDescription),
-                                                    }}
-                                                />
-                                            )}
-                                        </TableCell>
-
-                                        <TableCell>{cat.categoryImage && <img src={cat.categoryImage} alt="thumb" width={50} height={50} />}</TableCell>
-                                        <TableCell>
-                                            <Button size="small" variant="outlined" href={`/category/${cat._id}`}>
-                                                View
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                        <Box mt={3} display="flex" justifyContent="center">
-                            <CustomPagination page={page} totalPages={totalPages} onChange={(val) => setPage(val)} />
-                        </Box>
+                    <Box display="flex" justifyContent="center" mt={5}>
+                        <CircularProgress />
                     </Box>
+                ) : (
+                    <Masonry columns={{ xs: 1, sm: 2, md: 3 }} spacing={2}>
+                        {categories.map((cat) => (
+                            <Card
+                                key={cat._id}
+                                sx={{
+                                    borderRadius: 3,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    overflow: 'hidden',
+                                    bgcolor: 'background.paper',
+                                }}
+                            >
+                                <Box sx={{ height: '100%', overflow: 'hidden' }}>
+                                    {cat.categoryImage && (
+                                        <CardMedia
+                                            component="img"
+                                            image={cat.categoryImage}
+                                            alt={cat.categoryName}
+                                            sx={{
+                                                height: '100%',
+                                                width: '100%',
+                                                objectFit: 'cover',
+                                            }}
+                                        />
+                                    )}
+                                </Box>
+
+                                <CardContent sx={{ flexGrow: 1 }}>
+                                    <Typography variant="h6" gutterBottom>
+                                        {cat.categoryName}
+                                    </Typography>
+
+                                    <Typography
+                                        variant="body2"
+                                        dangerouslySetInnerHTML={{
+                                            __html:
+                                                DOMPurify.sanitize(cat.categoryDescription.slice(0, 120)) + '...',
+                                        }}
+                                        sx={{ mb: 1 }}
+                                    />
+
+                                    <Box display="flex" flexWrap="wrap" gap={0.5} mb={1}>
+                                        {cat.subCategoriesName?.slice(0, 3).map((sub, i) => (
+                                            <Chip label={sub.replace(/_/g, ' ')} size="small" key={i} />
+                                        ))}
+                                        {cat.subCategoriesName?.length > 3 && (
+                                            <Chip label={`+${cat.subCategoriesName.length - 3}`} size="small" />
+                                        )}
+                                    </Box>
+
+                                    <Button size="small" variant="outlined" href={`/category/${cat._id}`}>
+                                        View Details
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </Masonry>
                 )}
+
+                <Box mt={4} display="flex" justifyContent="center">
+                    <CustomPagination page={page} totalPages={totalPages} onChange={(val) => setPage(val)} />
+                </Box>
             </Container>
 
-            <CategoryForm open={openAdd}
+            <CategoryForm
+                open={openAdd}
                 onClose={(event, reason) => {
                     if (reason !== 'backdropClick') setOpenAdd(false);
                 }}
-                onSuccess={() => fetchCategories(searchTerm, page)} />
-            <SubCategoryForm open={openSub}
+                onSuccess={() => fetchCategories(searchTerm, page)}
+            />
+            <SubCategoryForm
+                open={openSub}
                 onClose={(event, reason) => {
                     if (reason !== 'backdropClick') setOpenSub(false);
                 }}
-                onSuccess={() => fetchCategories(searchTerm, page)} />
+                onSuccess={() => fetchCategories(searchTerm, page)}
+            />
         </>
     );
 };

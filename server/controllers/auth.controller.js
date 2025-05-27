@@ -34,7 +34,7 @@ const login = asyncWrapper(async (req, res) => {
     
     res.cookie('token', token, { httpOnly: true, secure: true });
     res.setHeader('Authorization', `Bearer ${token}`);
-    return res.status(200).json({ message: 'Login successful', user, token });
+    return res.status(200).json({ message: 'Login successful',"user": user.username,"token": token });
 });
 
 const register = asyncWrapper(async (req, res) => {

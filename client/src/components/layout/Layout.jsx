@@ -1,7 +1,6 @@
 // src/components/layout/Layout.jsx
 import React, { useState } from 'react';
-import { Box, Toolbar } from '@mui/material';
-import Header from './Header';
+import { Box } from '@mui/material';
 import Sidebar from './Sidebar';
 import { Outlet } from 'react-router-dom';
 
@@ -13,17 +12,17 @@ const Layout = ({ children }) => {
   return (
     <Box sx={{ display: 'flex' }}>
       <Sidebar open={sidebarOpen} toggleSidebar={toggleSidebar} />
+
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          p: 0,
-          ml: sidebarOpen ? '240px' : '64px',
-          transition: 'margin-left 0.3s',
+          p: 0,            // add some padding if you want
+          ml: 0,           // NO margin-left, so content stays full width
+          transition: 'all 0.3s ease',
         }}
       >
-        <Toolbar />
-        <Outlet/>
+        <Outlet />
         {children}
       </Box>
     </Box>

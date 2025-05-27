@@ -5,3 +5,9 @@
   color: rgb(70, 70, 70) !important;
   font-size: 24px; /* optional to increase size */
 }
+
+*{
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}

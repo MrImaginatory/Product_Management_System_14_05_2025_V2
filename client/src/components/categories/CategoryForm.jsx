@@ -120,19 +120,44 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
     };
 
     return (
-        <Dialog open={open} onClose={(event, reason) => {
-            if (reason !== 'backdropClick') {
-                handleClose();
-            }
-        }} maxWidth="sm" fullWidth>
-            <DialogTitle>
+        <Dialog
+            open={open}
+            onClose={(event, reason) => reason !== 'backdropClick' && handleClose()}
+            maxWidth="sm"
+            fullWidth
+            PaperProps={{
+                sx: {
+                    borderRadius: 3,
+                    background: '#fefefe',
+                    boxShadow: 12,
+                },
+            }}
+        >
+            <DialogTitle
+                sx={{
+                    fontWeight: 'bold',
+                    color: '#1976d2',
+                    fontSize: '1.4rem',
+                    background: '#e3f2fd',
+                    py: 2,
+                }}
+            >
                 {isEdit ? 'Edit Category' : 'Add Category'}
-                <IconButton onClick={handleClose} sx={{ position: 'absolute', right: 8, top: 8 }}>
+                <IconButton
+                    onClick={handleClose}
+                    sx={{
+                        position: 'absolute',
+                        right: 8,
+                        top: 8,
+                        color: '#1976d2',
+                    }}
+                >
                     <CloseIcon />
                 </IconButton>
             </DialogTitle>
+
             <DialogContent dividers>
-                <Stack spacing={2}>
+                <Stack spacing={3}>
                     <Controller
                         name="categoryName"
                         control={control}
@@ -140,12 +165,22 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
                             <TextField
                                 label="Category Name"
                                 fullWidth
+                                variant="outlined"
                                 error={!!errors.categoryName}
                                 helperText={errors.categoryName?.message}
                                 {...field}
+                                sx={{
+                                    '& label.Mui-focused': {
+                                        color: '#1976d2',
+                                    },
+                                    '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#1976d2',
+                                    },
+                                }}
                             />
                         )}
                     />
+
                     <Controller
                         name="slug"
                         control={control}
@@ -153,12 +188,22 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
                             <TextField
                                 label="Slug"
                                 fullWidth
+                                variant="outlined"
                                 error={!!errors.slug}
                                 helperText={errors.slug?.message}
                                 {...field}
+                                sx={{
+                                    '& label.Mui-focused': {
+                                        color: '#1976d2',
+                                    },
+                                    '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#1976d2',
+                                    },
+                                }}
                             />
                         )}
                     />
+
                     <Controller
                         name="categoryDescription"
                         control={control}
@@ -171,16 +216,47 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
                             />
                         )}
                     />
+
                     <ImagePreview file={imageFile} onFileChange={handleImageSelect} />
                 </Stack>
             </DialogContent>
-            <DialogActions>
-                <Button onClick={handleClose} variant="outlined">Cancel</Button>
-                <Button onClick={handleSubmit(onSubmit)} variant="contained" disabled={loading} startIcon={loading && <CircularProgress size={20} />} >
+
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+                <Button
+                    onClick={handleClose}
+                    variant="outlined"
+                    color="secondary"
+                    sx={{
+                        textTransform: 'none',
+                        borderRadius: '8px',
+                        fontWeight: '500',
+                    }}
+                >
+                    Cancel
+                </Button>
+
+                <Button
+                    onClick={handleSubmit(onSubmit)}
+                    variant="contained"
+                    color="primary"
+                    disabled={loading}
+                    startIcon={loading && <CircularProgress size={20} />}
+                    sx={{
+                        textTransform: 'none',
+                        borderRadius: '8px',
+                        fontWeight: '500',
+                        background: 'linear-gradient(to right, #1976d2, #42a5f5)',
+                        boxShadow: '0 3px 6px rgba(0,0,0,0.2)',
+                        '&:hover': {
+                            background: 'linear-gradient(to right, #1565c0, #1e88e5)',
+                        },
+                    }}
+                >
                     {isEdit ? 'Update' : 'Add'}
                 </Button>
             </DialogActions>
         </Dialog>
+
     );
 };
 

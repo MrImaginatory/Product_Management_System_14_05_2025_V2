@@ -50,7 +50,7 @@ const ImagePreview = ({
                 <img
                   src={URL.createObjectURL(img)}
                   alt={`img-${idx}`}
-                  height={50}
+                  height={80}
                   style={{ borderRadius: 4 }}
                 />
                 <IconButton

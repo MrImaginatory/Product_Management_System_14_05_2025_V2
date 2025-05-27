@@ -4,19 +4,19 @@ import {
     Button,
     Container,
     Typography,
-    Table,
-    TableHead,
-    TableRow,
-    TableCell,
-    TableBody,
     TextField,
     Stack,
     CircularProgress,
     InputAdornment,
     IconButton,
+    Card,
+    CardContent,
+    CardMedia,
+    CardActions,
 } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import debounce from 'lodash/debounce';
+import Masonry from '@mui/lab/Masonry';
 
 import axiosClient from '../services/axiosClient';
 import ProductForm from '../components/products/ProductForm';
@@ -41,7 +41,7 @@ const ProductPage = () => {
                     params: {
                         searchProduct: searchValue,
                         page: pageValue,
-                        limit: 10,
+                        limit: 12,
                     },
                 });
                 setProducts(res.data.products);
@@ -55,7 +55,6 @@ const ProductPage = () => {
         [searchProduct, page, showSnackbar]
     );
 
-    // Debounced fetch on search input change
     const debouncedFetch = useMemo(
         () =>
             debounce((searchValue) => {
@@ -65,12 +64,10 @@ const ProductPage = () => {
         [fetchProducts]
     );
 
-    // Fetch products when page changes (except when search resets page)
     useEffect(() => {
         fetchProducts(searchProduct, page);
     }, [page, fetchProducts, searchProduct]);
 
-    // Cleanup debounce on unmount
     useEffect(() => {
         return () => {
             debouncedFetch.cancel();
@@ -98,17 +95,25 @@ const ProductPage = () => {
     return (
         <Container sx={{ mt: 4 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-                <Typography variant="h5">Products</Typography>
-                <Button variant="contained" color="primary" onClick={() => setOpenAdd(true)}>
+                <Typography variant="h4" fontWeight={600} color="primary.main">
+                    Products
+                </Typography>
+                <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={() => setOpenAdd(true)}
+                    sx={{ borderRadius: 2, px: 3 }}
+                >
                     Add Product
                 </Button>
             </Stack>
 
-            <Stack direction="row" spacing={2} mb={2}>
+            <Stack direction="row" spacing={2} mb={3}>
                 <TextField
                     label="Search Product or Category"
                     variant="outlined"
                     size="small"
+                    fullWidth
                     value={searchProduct}
                     onChange={handleSearchInputChange}
                     onKeyDown={(e) => {
@@ -121,64 +126,89 @@ const ProductPage = () => {
                     InputProps={{
                         endAdornment: searchProduct ? (
                             <InputAdornment position="end">
-                                <IconButton size="small" onClick={handleClearSearch} aria-label="clear search">
+                                <IconButton size="small" onClick={handleClearSearch}>
                                     <ClearIcon />
                                 </IconButton>
                             </InputAdornment>
                         ) : null,
                     }}
                 />
-                <Button variant="outlined" onClick={handleSearchClick}>
+                <Button
+                    variant="outlined"
+                    color="primary"
+                    onClick={handleSearchClick}
+                    sx={{ borderRadius: 2, px: 3 }}
+                >
                     Search
                 </Button>
             </Stack>
 
             {loading ? (
-                <CircularProgress />
+                <Box display="flex" justifyContent="center" alignItems="center" height="300px">
+                    <CircularProgress />
+                </Box>
             ) : (
-                <Box>
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>S.No</TableCell>
-                                <TableCell>Product Name</TableCell>
-                                <TableCell>Category</TableCell>
-                                <TableCell>Stock</TableCell>
-                                <TableCell>Sale Price</TableCell>
-                                <TableCell>Price</TableCell>
-                                <TableCell>Actions</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {products.map((product, index) => (
-                                <TableRow key={product._id}>
-                                    <TableCell>{(page - 1) * 10 + index + 1}</TableCell>
-                                    <TableCell>{product.productName}</TableCell>
-                                    <TableCell>{product.categoryName.categoryName}</TableCell>
-                                    <TableCell>{product.stock}</TableCell>
-                                    <TableCell>₹{product.productSalePrice}</TableCell>
-                                    <TableCell>₹{product.productPrice}</TableCell>
-                                    <TableCell>
-                                        <Button size="small" variant="outlined" href={`/product/${product._id}`}>
-                                            View
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                <>
+                    <Masonry columns={{ xs: 1, sm: 2, md: 3 }} spacing={3}>
+    {products.map((product) => (
+        <Card key={product._id} elevation={3} sx={{ borderRadius: 3 }}>
+            {product.productDisplayImage && (
+                <CardMedia
+                    component="img"
+                    image={product.productDisplayImage}
+                    alt={product.productName}
+                    sx={{ objectFit: 'cover' }}
+                />
+            )}
+            <CardContent>
+                <Typography variant="h6" fontWeight={600}>
+                    {product.productName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                    Category: {product.categoryName?.categoryName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                    Stock: {product.stock}
+                </Typography>
+                <Typography variant="body2" color="success.main" mt={1}>
+                    ₹{product.productSalePrice}{" "}
+                    <Typography
+                        component="span"
+                        sx={{ textDecoration: 'line-through', color: 'text.disabled' }}
+                    >
+                        ₹{product.productPrice}
+                    </Typography>
+                </Typography>
+            </CardContent>
+            <CardActions sx={{ justifyContent: 'flex-end', pr: 2 }}>
+                <Button
+                    size="small"
+                    variant="outlined"
+                    color="info"
+                    href={`/product/${product._id}`}
+                    sx={{ borderRadius: 2 }}
+                >
+                    View
+                </Button>
+            </CardActions>
+        </Card>
+    ))}
+</Masonry>
 
-                    <Box mt={3} display="flex" justifyContent="center">
+
+                    <Box mt={4} display="flex" justifyContent="center">
                         <CustomPagination page={page} totalPages={totalPages} onChange={(val) => setPage(val)} />
                     </Box>
-                </Box>
+                </>
             )}
 
-            <ProductForm open={openAdd}
+            <ProductForm
+                open={openAdd}
                 onClose={(event, reason) => {
                     if (reason !== 'backdropClick') setOpenAdd(false);
                 }}
-                onSuccess={() => fetchProducts(searchProduct, page)} />
+                onSuccess={() => fetchProducts(searchProduct, page)}
+            />
         </Container>
     );
 };

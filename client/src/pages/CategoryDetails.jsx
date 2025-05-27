@@ -61,7 +61,7 @@ const CategoryDetails = () => {
     if (!category) return <Typography>Loading...</Typography>;
 
     return (
-        <Container sx={{ mt: 4 }}>
+        <Container sx={{ mt: 4 }} >
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="h5">Category Details</Typography>
                 <Stack direction="row" spacing={2}>
@@ -82,7 +82,7 @@ const CategoryDetails = () => {
                     <Typography variant="subtitle1"><strong>Subcategories:</strong></Typography>
                     <ol >
                         {category.subCategoriesName?.map((sub, idx) => (
-                            <li key={idx}>{sub}</li>
+                            <li key={idx} style={{listStyle:'none'}}><span>{idx+1+". "}</span>{sub}</li>
                         ))}
                     </ol>
                 </Box>

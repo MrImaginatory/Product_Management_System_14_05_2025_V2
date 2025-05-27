@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Autocomplete, Stack, IconButton
+  Button, TextField, Autocomplete, Stack, IconButton, CircularProgress, Chip
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import axiosClient from '../../services/axiosClient';
@@ -27,15 +27,10 @@ const SubCategoryForm = ({
   useEffect(() => {
     if (!open) return;
 
-    if (mode === 'create') {
-      fetchCategories();
-    } else {
-      setSelectedCategory({ _id: categoryId, categoryName: 'Selected Category' });
-    }
+    if (mode === 'create') fetchCategories();
+    else setSelectedCategory({ _id: categoryId, categoryName: 'Selected Category' });
 
-    setOldSub('');
-    setNewSubInput('');
-    setNewSubs([]);
+    resetForm();
   }, [open]);
 
   const fetchCategories = async () => {
@@ -44,13 +39,20 @@ const SubCategoryForm = ({
       setCategories(res.data.categories);
     } catch (err) {
       console.error('Failed to load categories');
+      showSnackbar('Failed to load categories', 'error');
     }
+  };
+
+  const resetForm = () => {
+    setOldSub('');
+    setNewSubInput('');
+    setNewSubs([]);
   };
 
   const handleAddSub = () => {
     const trimmed = newSubInput.trim();
     if (trimmed && !newSubs.includes(trimmed)) {
-      setNewSubs([...newSubs, trimmed]);
+      setNewSubs((prev) => [...prev, trimmed]);
       setNewSubInput('');
     }
   };
@@ -74,7 +76,7 @@ const SubCategoryForm = ({
       }
 
       onSuccess();
-      onClose();
+      handleClose();
     } catch (err) {
       console.error('Failed to submit subcategory:', err.message);
       showSnackbar(err?.response?.data?.message || 'Operation failed', 'error');
@@ -83,18 +85,30 @@ const SubCategoryForm = ({
     }
   };
 
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog
+      open={open}
+      onClose={(event, reason) => {
+        if (reason !== 'backdropClick') handleClose();
+      }}
+      maxWidth="sm"
+      fullWidth
+    >
       <DialogTitle>
         {mode === 'create' ? 'Add Subcategories' : 'Edit Subcategory'}
-        <IconButton onClick={onClose} sx={{ position: 'absolute', right: 8, top: 8 }}>
+        <IconButton onClick={handleClose} sx={{ position: 'absolute', right: 8, top: 8 }}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
 
       <DialogContent dividers>
         <Stack spacing={2}>
-          {/* Category dropdown in create mode */}
+          {/* Select Category */}
           {mode === 'create' ? (
             <Autocomplete
               options={categories}
@@ -112,7 +126,7 @@ const SubCategoryForm = ({
             />
           )}
 
-          {/* Edit mode: choose subcategory to rename */}
+          {/* Edit Mode: Select Old Subcategory */}
           {mode === 'edit' && (
             <Autocomplete
               options={existingSubCategories}
@@ -123,7 +137,7 @@ const SubCategoryForm = ({
             />
           )}
 
-          {/* Create mode: add multiple subcategories */}
+          {/* Create Mode: Add Multiple Subcategories */}
           {mode === 'create' ? (
             <>
               <Stack direction="row" spacing={1}>
@@ -139,21 +153,23 @@ const SubCategoryForm = ({
                     }
                   }}
                 />
-                <Button onClick={handleAddSub} variant="contained" disabled={!newSubInput.trim()}>
+                <Button
+                  onClick={handleAddSub}
+                  variant="contained"
+                  disabled={!newSubInput.trim()}
+                >
                   Add
                 </Button>
               </Stack>
 
               <Stack direction="row" spacing={1} flexWrap="wrap">
                 {newSubs.map((sub, idx) => (
-                  <Button
+                  <Chip
                     key={idx}
-                    size="small"
-                    variant="outlined"
-                    onClick={() => setNewSubs(newSubs.filter((s) => s !== sub))}
-                  >
-                    {sub} ×
-                  </Button>
+                    label={sub}
+                    onDelete={() => setNewSubs(newSubs.filter((s) => s !== sub))}
+                    sx={{ m: 0.5 }}
+                  />
                 ))}
               </Stack>
             </>
@@ -169,11 +185,16 @@ const SubCategoryForm = ({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose} variant="outlined">Cancel</Button>
+        <Button onClick={handleClose} variant="outlined">
+          Cancel
+        </Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={(mode === 'create') ? newSubs.length === 0 : !newSubInput.trim()}
+          disabled={
+            loading || (mode === 'create' ? newSubs.length === 0 : !newSubInput.trim())
+          }
+          startIcon={loading && <CircularProgress size={20} />}
         >
           {mode === 'create' ? 'Add' : 'Update'}
         </Button>
