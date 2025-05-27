@@ -40,9 +40,7 @@ const SignupPage = () => {
         }
 
         try {
-            const res = await axios.post('http://localhost:3001/api/v2/auth/signup', formData, {
-                withCredentials: true
-            });
+            const res = await axios.post('http://localhost:3001/api/v2/auth/register', formData);
 
             const { user, token } = res.data;
             login(user, token);

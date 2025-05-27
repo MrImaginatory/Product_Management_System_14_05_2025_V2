@@ -93,6 +93,7 @@ const CategoryForm = ({ open, onClose, onSuccess, initialData = {}, isEdit = fal
             if (isEdit && initialData._id) {
                 await axiosClient.patch(`/category/updateCategory/${initialData._id}`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
+                    withCredentials: true
                 });
             } else {
                 await axiosClient.post('/category/createCategory', formData, {

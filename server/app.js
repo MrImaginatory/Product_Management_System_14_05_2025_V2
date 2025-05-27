@@ -8,28 +8,12 @@ import authRouter from './routes/auth.route.js';
 import userRouter from './routes/user.route.js';
 import dotenv from 'dotenv/config';
 
-const allowedOrigins = [
-    "http://localhost:5173",
-    "https://68359871ec9f7c0008817175--luxury-squirrel-4a086a.netlify.app"
-];
-
 const app = express();
 
-app.use(
-    cors({
-        origin: function (origin, callback) {
-            if (!origin || allowedOrigins.includes(origin)) {
-                callback(null, true);
-            } else {
-                callback(new Error("Not allowed by CORS"));
-            }
-        },
-        credentials: true, // If you're using cookies or Authorization headers
-    })
-);
-
-console.log(process.env);
-
+app.use(cors({
+    origin: process.env.CORS_ORIGIN || 'https://product-management-system-14-05-2025-v2-1.onrender.com',
+    credentials: true,
+}));
 
 app.use(express.json());
 app.use(urlencoded({ extended: true }));

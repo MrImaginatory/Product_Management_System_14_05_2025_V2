@@ -6,7 +6,11 @@ const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 const getToken = () => {
-  return sessionStorage.getItem('token') || localStorage.getItem('token');
+  if (localStorage.getItem('token')) {
+    return localStorage.getItem('token');
+  } else {
+    return sessionStorage.getItem('token');
+  }
 };
 
 const getDecodedToken = (token) => {
@@ -35,6 +39,7 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback((expired = false) => {
     setUser(null);
     localStorage.removeItem('token');
+    localStorage.removeItem('username');
     sessionStorage.removeItem('token');
     if (expired) {
       alert('Session expired. Please log in again.');

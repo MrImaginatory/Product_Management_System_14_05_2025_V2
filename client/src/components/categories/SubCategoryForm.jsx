@@ -62,9 +62,7 @@ const SubCategoryForm = ({
     try {
       if (mode === 'create') {
         if (!selectedCategory || newSubs.length === 0) return;
-        await axiosClient.patch(`/category/createSubCategory/${selectedCategory._id}`, {
-          subCategoriesName: newSubs,
-        });
+        await axiosClient.patch(`/category/createSubCategory/${selectedCategory._id}`, { subCategoriesName: newSubs });
         showSnackbar('Subcategories added successfully!', 'success');
       } else {
         if (!oldSub.trim() || !newSubInput.trim()) return;

@@ -65,7 +65,7 @@ const CategoryUpdateForm = ({ open, onClose, initialData = {}, onSuccess }) => {
 
     setLoading(true);
     try {
-      await axiosClient.patch(`/category/updateCategory/${initialData._id}`, formData);
+      await axiosClient.patch(`/category/updateCategory/${initialData._id}`, formData,);
       onSuccess();
       showSnackbar('Category updated successfully!', 'success');
       handleClose();
