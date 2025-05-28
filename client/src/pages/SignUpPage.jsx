@@ -5,6 +5,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import axiosClient from '../services/axiosClient';
 
 const SignupPage = () => {
     const navigate = useNavigate();
@@ -40,7 +41,7 @@ const SignupPage = () => {
         }
 
         try {
-            const res = await axios.post(`${process.env.VITE_API_BASE_URL}/auth/register`, formData);
+            const res = await axiosClient.post('/auth/register', formData);
 
             const { user, token } = res.data;
             login(user, token);

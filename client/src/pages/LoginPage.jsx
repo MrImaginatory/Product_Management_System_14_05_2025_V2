@@ -5,6 +5,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import axiosClient from '../services/axiosClient';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ const LoginPage = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      const res = await axios.post(`${process.env.VITE_API_BASE_URL}/auth/login`, formData, { withCredentials: true });
+      const res = await axiosClient.post('/auth/login', formData);
       const { user, token } = res.data;
       login(user, token);
       localStorage.setItem('username', formData.username);
