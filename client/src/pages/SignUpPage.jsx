@@ -40,7 +40,7 @@ const SignupPage = () => {
         }
 
         try {
-            const res = await axios.post(`${process.env.VITE_API_BASE_URL}auth/register`, formData);
+            const res = await axios.post(`${process.env.VITE_API_BASE_URL}/auth/register`, formData);
 
             const { user, token } = res.data;
             login(user, token);
