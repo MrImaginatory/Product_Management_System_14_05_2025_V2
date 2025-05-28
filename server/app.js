@@ -10,10 +10,23 @@ import dotenv from 'dotenv/config';
 
 const app = express();
 
+const allowedOrigins = [
+    'http://localhost:5173',
+    'https://product-management-system-14-05-2025-v2-1.onrender.com'
+];
+
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'https://product-management-system-14-05-2025-v2-1.onrender.com',
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 }));
+
 
 app.use(express.json());
 app.use(urlencoded({ extended: true }));
