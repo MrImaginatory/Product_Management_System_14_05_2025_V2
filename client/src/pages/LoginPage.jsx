@@ -33,7 +33,7 @@ const LoginPage = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      const res = await axios.post('http://localhost:3001/api/v2/auth/login', formData, { withCredentials: true });
+      const res = await axios.post(`${process.env.VITE_API_BASE_URL}auth/login`, formData, { withCredentials: true });
       const { user, token } = res.data;
       login(user, token);
       localStorage.setItem('username', formData.username);
