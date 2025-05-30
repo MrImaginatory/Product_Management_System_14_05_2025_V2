@@ -7,7 +7,9 @@ import {createCategory,
         deleteSubCategory,
         getCategories,
         getCategory,
-        getSubCategories} from '../controllers/category.controller.js'
+        getSubCategories,
+        getDataCSV
+} from '../controllers/category.controller.js'
 import { uploadCategoryImage } from '../middlewares/multer.middleware.js';
 const categoryRouter = Router();
 import checkToken from "../middlewares/token.middleware.js";
@@ -15,6 +17,7 @@ import checkToken from "../middlewares/token.middleware.js";
 categoryRouter.use(checkToken);
 
 categoryRouter.route('/categories').get(getCategories);
+categoryRouter.route('/categoryCSV').get(getDataCSV);
 categoryRouter.route('/subCategories').get(getSubCategories);
 categoryRouter.route('/category/:categoryId').get(getCategory);
 categoryRouter.route('/createCategory').post(uploadCategoryImage,createCategory);

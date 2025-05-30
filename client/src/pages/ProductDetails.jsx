@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogActions,
   Divider,
+  CircularProgress
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import axiosClient from '../services/axiosClient';
@@ -52,7 +53,9 @@ const ProductDetails = () => {
     fetchProduct();
   }, []);
 
-  if (!product) return <Typography>Loading...</Typography>;
+  if (!product) return (<Box display="flex" justifyContent="center" mt={5}>
+                        <CircularProgress />
+                    </Box>);
 
   const images = [
     product.productDisplayImage,

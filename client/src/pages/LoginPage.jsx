@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import axiosClient from '../services/axiosClient';
 
+
 const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -78,7 +79,7 @@ const LoginPage = () => {
         <Box
           sx={{
             flex: 1,
-            backgroundImage: 'url(/login.jpg)', // replace with actual path to your image
+            backgroundImage: 'url(/project/loginBackground.jpg)', // replace with actual path to your image
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             minHeight: 400,

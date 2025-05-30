@@ -8,11 +8,16 @@ import authRouter from './routes/auth.route.js';
 import userRouter from './routes/user.route.js';
 import dotenv from 'dotenv/config';
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 const app = express();
 
 const allowedOrigins = [
+    'http://localhost:3001',
+    'http://localhost:3002',
     'http://localhost:5173',
-    'https://product-management-system-14-05-2025-v2-1.onrender.com'
+    'http://46.250.237.182:8080'
 ];
 
 app.use(cors({
@@ -27,6 +32,8 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 }));
 
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
 
 app.use(express.json());
 app.use(urlencoded({ extended: true }));
@@ -36,10 +43,21 @@ app.use('/api/v2/product', productRouter)
 app.use('/api/v2/auth', authRouter)
 app.use('/api/v2/user', userRouter)
 
-// utils/ApiError.js
+// const buildPath = path.join(__dirname, '../client/dist');
+
+// app.use('/', express.static(path.join(__dirname, '../client/dist')));
+
+// app.get('*', (req, res) => {
+//   res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
+// });
+
+// app.get('/',(req,res)=>{
+//     res.redirect('/project');
+// })
 app.use((req, res, next) => {
     next(new ApiError(404, 'Route not found'));
 });
+
 app.use(errorHandler);
 
 export { app }

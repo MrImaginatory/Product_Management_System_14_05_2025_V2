@@ -221,7 +221,6 @@ const createSubCategory = asyncWrapper(async (req, res) => {
   });
 });
 
-
 const updateSubCategory = asyncWrapper(async (req, res) => {
   const { categoryId } = req.params;
   const { oldSubCategoryName, newSubCategoryName } = req.body;
@@ -359,6 +358,16 @@ const getCategory = asyncWrapper(async (req, res) => {
   return res.status(200).json({ message: "Category fetched successfully", category });
 })
 
+const getDataCSV = asyncWrapper(async(req,res)=>{
+  const data = await Category.find();
+
+  if(!data || data.length<=0){
+    throw new ApiError(404,'Data Not Found')
+  }
+
+  return res.status(200).json({categoryData: data});
+})
+
 export {
   createCategory,
   updateCategory,
@@ -368,5 +377,6 @@ export {
   deleteSubCategory,
   getCategories,
   getCategory,
-  getSubCategories
+  getSubCategories,
+  getDataCSV
 };

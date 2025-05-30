@@ -43,8 +43,8 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
     productDescription: '',
   });
 
+  
   const productId = initialData._id || useParams();
-
   useEffect(() => {
     if (open && initialData) {
       setForm({
@@ -73,7 +73,7 @@ const ProductUpdateForm = ({ open, onClose, onSuccess, initialData }) => {
 
   useEffect(() => {
     const fetchCategories = async () => {
-      const res = await axiosClient.get('/categories');
+      const res = await axiosClient.get('/category/categories');
       setCategories(res.data.categories);
     };
     if (open) fetchCategories();

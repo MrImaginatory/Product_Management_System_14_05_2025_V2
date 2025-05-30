@@ -371,4 +371,12 @@ const getProduct = asyncWrapper(async (req, res) => {
     });
 })
 
-export { createProduct, updateProduct, deleteProduct, getAllProducts, getProduct, getProducts };
+const getDataCSV = asyncWrapper(async(req,res)=>{
+    const data =  await Product.find().populate("categoryName", "categoryName");
+    console.log(data);
+    
+    if(!data) throw new ApiError(404, "Product not found");
+    return res.status(200).json({productData:data})
+})
+
+export { createProduct, updateProduct, deleteProduct, getAllProducts, getProduct, getProducts, getDataCSV };

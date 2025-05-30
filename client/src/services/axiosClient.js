@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create Axios instance
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL, // e.g., http://localhost:3001/api/v2
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api/v2',
   withCredentials: true, // ✅ send cookies
   headers: {
     'Content-Type': 'application/json',

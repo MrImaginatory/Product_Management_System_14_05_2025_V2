@@ -85,7 +85,7 @@ const SignupPage = () => {
                 <Box
                     sx={{
                         flex: 1,
-                        backgroundImage: 'url(/signup.jpg)',
+                        backgroundImage: 'url(/project/signupBackground.jpg)',
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                         minHeight: 400

@@ -11,6 +11,7 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
+    CircularProgress
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import axiosClient from '../services/axiosClient';
@@ -58,7 +59,9 @@ const CategoryDetails = () => {
         }
     };
 
-    if (!category) return <Typography>Loading...</Typography>;
+    if (!category) return (<Box display="flex" justifyContent="center" mt={5}>
+                        <CircularProgress />
+                    </Box>)
 
     return (
         <Container sx={{ mt: 4 }} >
