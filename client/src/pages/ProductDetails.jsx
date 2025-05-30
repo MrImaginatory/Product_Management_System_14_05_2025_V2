@@ -167,7 +167,7 @@ const ProductDetails = () => {
           >
             <Slider {...carouselSettings}>
               {images.map((img, idx) => (
-                <Box key={idx} sx={{ width: '100%', height: 450 }}>
+                <Box key={idx} sx={{ width: '100%', height: 450,  }}>
                   <img src={img} alt={`product-${idx}`} loading="lazy" />
                 </Box>
               ))}
